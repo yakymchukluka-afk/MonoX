@@ -86,14 +86,11 @@ def main(cfg: DictConfig) -> None:
 
     # Ensure StyleGAN-V is available locally and get its launcher path
     sgv_dir = _ensure_styleganv_repo(repo_root)
-    sgv_launcher = sgv_dir / "src" / "infra" / "launch.py"
-    if not sgv_launcher.exists():
-        print(f"ERROR: Could not locate StyleGAN-V launcher at {sgv_launcher}")
-        sys.exit(3)
+    sgv_launcher_module = "src.infra.launch"
 
     # Build Hydra overrides for StyleGAN-V
     cmd = [
-        sys.executable, str(sgv_launcher),
+        sys.executable, "-m", sgv_launcher_module,
         f"hydra.run.dir={logs_dir}",
         "exp_suffix=monox",
         f"dataset.path={dataset_path}",
@@ -114,8 +111,11 @@ def main(cfg: DictConfig) -> None:
     log_file = os.path.join(logs_dir, "train.log")
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
+    # Ensure src imports work when running as module
+    existing_pp = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = (str(sgv_dir) + (":" + existing_pp if existing_pp else ""))
 
-    with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env) as proc:
+    with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env, cwd=str(sgv_dir)) as proc:
         with open(log_file, "a", buffering=1) as out:
             for line in proc.stdout:  # type: ignore[attr-defined]
                 sys.stdout.write(line)
