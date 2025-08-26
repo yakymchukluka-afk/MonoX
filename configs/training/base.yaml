@@ -1,7 +1,5 @@
 # @package _
-# Allow unknown fields to be added
-_target_: ~
-_recursive_: false
+# Base training configuration settings
 
 training:
   total_kimg: 3000

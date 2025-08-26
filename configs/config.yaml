@@ -9,8 +9,7 @@ defaults:
   - _self_
 
 # Allow unknown fields to be added via + syntax
-_target_: ~
-_recursive_: false
+# Configuration settings for MonoX training
 
 # Experiment configuration - Allows CLI override via exp_suffix=...
 exp_suffix: null

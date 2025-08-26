@@ -1,9 +1,6 @@
 # Base visualizer configuration for MonoX
 # Defines preview generation settings during training
 
-_target_: ~
-_recursive_: false
-
 save_every_kimg: 50
 output_dir: ${oc.env:PREVIEWS_DIR,previews}
 
