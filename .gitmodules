@@ -1,0 +1,3 @@
+[submodule "external/stylegan-v"]
+	path = external/stylegan-v
+	url = https://github.com/yourusername/stylegan-v.git
