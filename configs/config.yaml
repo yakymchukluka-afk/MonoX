@@ -5,6 +5,7 @@
 defaults:
   - _self_
   - training: base
+  - visualizer: base
 
 # Allow unknown fields to be added via + syntax
 _target_: ~
@@ -33,6 +34,3 @@ launcher: stylegan  # Options: stylegan, local
 sampling:
   truncation_psi: 1.0
 
-visualizer:
-  save_every_kimg: 50
-  output_dir: ${training.preview_dir}
