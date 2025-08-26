@@ -3,10 +3,11 @@
 #   python src/infra/launch.py dataset.path=/content/drive/MyDrive/MonoX/dataset training.log_dir=/content/drive/MyDrive/MonoX/logs
 
 defaults:
+  - _self_
   - training: base
 
 dataset:
-  path: ${oc.env:DATASET_DIR,}
+  path: ${oc.env:DATASET_DIR,""}
   resolution: 1024
 
 training:
