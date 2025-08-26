@@ -72,13 +72,13 @@ def main(cfg: DictConfig) -> None:
 
     # Read config values with fallbacks to env vars if present
     dataset_cfg = cfg.get("dataset")
-    if isinstance(dataset_cfg, dict):
-        dataset_path = str(dataset_cfg.get("path", os.environ.get("DATASET_DIR", "")))
+    if isinstance(dataset_cfg, DictConfig):
+        dataset_path = str(dataset_cfg.get("path") or os.environ.get("DATASET_DIR", ""))
     else:
         dataset_path = os.environ.get("DATASET_DIR", "")
     
     # Handle resolution similarly to avoid the same error
-    if isinstance(dataset_cfg, dict):
+    if isinstance(dataset_cfg, DictConfig):
         resolution = int(dataset_cfg.get("resolution", 1024))
     else:
         resolution = 1024
