@@ -27,8 +27,6 @@ hydra:
   run:
     dir: ${training.log_dir}
   mode: RUN
-  # Allow flexible overrides without strict validation
-  strict: false
 
 training:
   total_kimg: 3000
