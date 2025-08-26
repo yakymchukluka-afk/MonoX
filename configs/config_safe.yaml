@@ -1,0 +1,23 @@
+# Safe config for old Hydra versions - no advanced features
+# Compatible with hydra-core==1.0.7
+
+exp_suffix: ""
+num_gpus: 1
+
+dataset:
+  path: ""
+  resolution: 1024
+  c_dim: 0
+
+training:
+  total_kimg: 3000
+  snapshot_kimg: 250
+  log_dir: logs
+  num_gpus: 1
+
+visualizer:
+  save_every_kimg: 50
+  output_dir: previews
+
+sampling:
+  truncation_psi: 1.0

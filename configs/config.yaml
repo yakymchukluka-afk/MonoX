@@ -13,19 +13,13 @@ _target_: ~
 _recursive_: false
 _convert_: partial
 
-# Disable struct mode to allow dynamic config additions  
-struct: false
-
 # Experiment configuration
 exp_suffix: ""  # Experiment name suffix
 
 # Hardware configuration
 num_gpus: 1  # Number of GPUs to use for training
 
-# hydra.run.dir override for output paths
-hydra:
-  run:
-    dir: ${training.log_dir}
+# No hydra configuration - let it use defaults
 
 training:
   total_kimg: 3000
