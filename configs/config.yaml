@@ -19,8 +19,6 @@ exp_suffix: ""  # Experiment name suffix
 hydra:
   run:
     dir: ${training.log_dir}
-  job:
-    override_dirname: null
   mode: RUN
   
 # Disable struct mode to allow dynamic config additions
