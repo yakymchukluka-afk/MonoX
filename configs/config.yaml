@@ -12,8 +12,8 @@ defaults:
 _target_: ~
 _recursive_: false
 
-# Experiment configuration
-exp_suffix: ""  # Experiment name suffix
+# Experiment configuration - Allows CLI override via exp_suffix=...
+exp_suffix: null
 
 # Hardware configuration
 num_gpus: 1  # Number of GPUs to use for training
