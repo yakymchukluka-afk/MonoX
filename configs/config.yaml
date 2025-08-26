@@ -20,6 +20,8 @@ hydra:
   run:
     dir: ${training.log_dir}
   mode: RUN
+  # Allow flexible overrides without strict validation
+  strict: false
   
 # Disable struct mode to allow dynamic config additions
 struct: false
