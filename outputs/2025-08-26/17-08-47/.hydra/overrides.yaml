@@ -1,0 +1,6 @@
+- dataset=ffs
+- training.steps=10
+- training.batch=2
+- training.num_workers=0
+- training.fp16=false
+- launcher=local

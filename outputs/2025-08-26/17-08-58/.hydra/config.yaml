@@ -1,0 +1,30 @@
+_target_: null
+_recursive_: false
+dataset: ffs
+training:
+  total_kimg: 3000
+  snapshot_kimg: 250
+  steps: 10
+  batch: 2
+  num_workers: 0
+  fp16: false
+  num_gpus: 1
+  log_dir: ${oc.env:LOGS_DIR,logs}
+  preview_dir: ${oc.env:PREVIEWS_DIR,previews}
+  checkpoint_dir: ${oc.env:CKPT_DIR,checkpoints}
+  resume: ''
+launcher: local
+sampling:
+  truncation_psi: 1.0
+visualizer:
+  save_every_kimg: 50
+  output_dir: ${training.preview_dir}
+_:
+  _target_: null
+  _recursive_: false
+  training:
+    total_kimg: 3000
+    snapshot_kimg: 250
+    log_dir: logs
+    preview_dir: previews
+    checkpoint_dir: checkpoints
