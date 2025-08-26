@@ -4,6 +4,7 @@
 
 defaults:
   - _self_
+  - dataset: base
   - training: base
   - visualizer: base
 
@@ -11,9 +12,20 @@ defaults:
 _target_: ~
 _recursive_: false
 
-dataset:
-  path: ${oc.env:DATASET_DIR,""}
-  resolution: 1024
+# Experiment configuration
+exp_suffix: ""  # Experiment name suffix
+
+# hydra.run.dir override for output paths
+hydra:
+  run:
+    dir: ${training.log_dir}
+  job:
+    override_dirname: 
+      exclude_keys: []
+  mode: RUN
+  
+# Disable struct mode to allow dynamic config additions
+struct: false
 
 training:
   total_kimg: 3000
