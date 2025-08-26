@@ -11,6 +11,7 @@ _target_: ~
 _recursive_: false
 
 dataset:
+  name: null  # Dataset name (e.g. ffs, mead, ucf101)
   path: ${oc.env:DATASET_DIR,""}
   resolution: 1024
 

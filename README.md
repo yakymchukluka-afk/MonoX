@@ -4,7 +4,9 @@ A participative art project powered by StyleGAN-V for generating dynamic visual 
 
 ## Quick Start
 
-MonoX uses **`train.py`** as the single entrypoint for all training operations. It loads Hydra configurations from `configs/` and delegates to the StyleGAN-V submodule.
+MonoX uses **`train.py`** as the **single entrypoint** for all training operations. This is the only script you need to run - it loads Hydra configurations from `configs/` and delegates to the StyleGAN-V submodule.
+
+> **Note**: The legacy `src/infra/launch.py` is deprecated. Always use `train.py` at the repository root.
 
 ### Installation
 
@@ -32,13 +34,7 @@ python train.py dataset=ffs training.steps=10 launcher=local
 For Google Colab environments, use this minimal smoke test command:
 
 ```python
-!python train.py \
-    dataset=ffs \
-    training.steps=10 \
-    training.batch=2 \
-    training.num_workers=0 \
-    training.fp16=false \
-    launcher=local
+!python train.py -cp configs -cn config dataset=ffs training.steps=10 training.batch=2 training.num_workers=0 training.fp16=false launcher=local
 ```
 
 For actual training in Colab:
@@ -62,7 +58,7 @@ Run the smoke test to verify everything is working:
 ./scripts/test_train.sh
 
 # Or manually
-python train.py dataset=ffs training.steps=10 launcher=local
+python train.py -cp configs -cn config dataset=ffs training.steps=10 training.batch=2 training.num_workers=0 training.fp16=false launcher=local
 ```
 
 ## Configuration
@@ -70,13 +66,16 @@ python train.py dataset=ffs training.steps=10 launcher=local
 ### Main Parameters
 
 - `dataset.path`: Path to your training dataset
-- `dataset`: Dataset configuration (ffs, ucf101, mead, etc.)
+- `dataset`: Dataset configuration (ffs, ucf101, mead, etc.) - legacy format
+- `dataset.name`: Preferred dataset name format (ffs, ucf101, mead, etc.)
 - `training.total_kimg`: Total training duration in thousands of images
 - `training.steps`: Override for quick testing (use instead of total_kimg)
 - `training.batch`: Batch size override
 - `training.num_workers`: DataLoader workers (set to 0 for Colab)
 - `training.fp16`: Enable/disable mixed precision training
 - `launcher`: Training mode (`stylegan` for full training, `local` for testing)
+
+> **Note**: Both `dataset=ffs` and `dataset.name=ffs` work interchangeably. The preferred format is `dataset.name=ffs`.
 
 ### Config Files
 
@@ -106,10 +105,24 @@ python train.py \
 
 ## Architecture
 
-- **`train.py`**: Single entrypoint with Hydra configuration loading
+### Single Entrypoint Design
+
+MonoX follows a **single entrypoint** architecture for simplicity and consistency:
+
+- **`train.py`**: The **only** script you need to run for training
+  - Uses Hydra for configuration management
+  - Loads configs from `configs/config.yaml`
+  - Supports all command-line overrides
+  - Handles both testing (launcher=local) and training (launcher=stylegan)
+
+### Project Structure
+
 - **`configs/`**: Hydra configuration files for datasets, training, sampling
 - **`.external/stylegan-v/`**: StyleGAN-V submodule (automatically managed)
+- **`scripts/test_train.sh`**: Smoke test script for validation
 - **`src/infra/`**: Legacy infrastructure (deprecated in favor of train.py)
+
+> **Important**: Always use `train.py` at the repository root. The legacy `src/infra/launch.py` is kept for compatibility but is no longer the recommended approach.
 
 ## Troubleshooting
 
