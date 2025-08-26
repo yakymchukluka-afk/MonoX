@@ -1,0 +1,25 @@
+# Minimal Hydra config for MonoX StyleGAN-V launcher
+# You can override any of these via CLI: e.g.
+#   python src/infra/launch.py dataset.path=/content/drive/MyDrive/MonoX/dataset training.log_dir=/content/drive/MyDrive/MonoX/logs
+
+defaults: []
+
+dataset:
+  path: ${env:DATASET_DIR,}
+  resolution: 1024
+
+training:
+  total_kimg: 3000
+  snapshot_kimg: 250
+  num_gpus: 1
+  log_dir: ${env:LOGS_DIR,logs}
+  preview_dir: ${env:PREVIEWS_DIR,previews}
+  checkpoint_dir: ${env:CKPT_DIR,checkpoints}
+  resume: ""
+
+sampling:
+  truncation_psi: 1.0
+
+visualizer:
+  save_every_kimg: 50
+  output_dir: ${training.preview_dir}
