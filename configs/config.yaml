@@ -17,11 +17,18 @@ dataset:
 training:
   total_kimg: 3000
   snapshot_kimg: 250
+  steps: null  # Override total_kimg if set (for quick testing)
+  batch: null  # Batch size override
+  num_workers: null  # DataLoader workers override
+  fp16: null  # Mixed precision override
   num_gpus: 1
   log_dir: ${oc.env:LOGS_DIR,logs}
   preview_dir: ${oc.env:PREVIEWS_DIR,previews}
   checkpoint_dir: ${oc.env:CKPT_DIR,checkpoints}
   resume: ""
+
+# Training mode/launcher
+launcher: stylegan  # Options: stylegan, local
 
 sampling:
   truncation_psi: 1.0
