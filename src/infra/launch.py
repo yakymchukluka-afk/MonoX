@@ -53,8 +53,17 @@ def main(cfg: DictConfig) -> None:
     repo_root = Path(__file__).resolve().parents[2]
 
     # Read config values with fallbacks to env vars if present
-    dataset_path = str(cfg.get("dataset", {}).get("path") or os.environ.get("DATASET_DIR", ""))
-    resolution = int(cfg.get("dataset", {}).get("resolution", 1024))
+    dataset_cfg = cfg.get("dataset")
+    if isinstance(dataset_cfg, dict):
+        dataset_path = str(dataset_cfg.get("path", os.environ.get("DATASET_DIR", "")))
+    else:
+        dataset_path = os.environ.get("DATASET_DIR", "")
+    
+    # Handle resolution similarly to avoid the same error
+    if isinstance(dataset_cfg, dict):
+        resolution = int(dataset_cfg.get("resolution", 1024))
+    else:
+        resolution = 1024
 
     total_kimg = int(cfg.get("training", {}).get("total_kimg", 3000))
     snapshot_kimg = int(cfg.get("training", {}).get("snapshot_kimg", 250))
