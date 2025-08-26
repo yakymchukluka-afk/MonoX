@@ -1,0 +1,6 @@
+training:
+  total_kimg: 3000
+  snapshot_kimg: 250
+  log_dir: logs
+  preview_dir: previews
+  checkpoint_dir: checkpoints

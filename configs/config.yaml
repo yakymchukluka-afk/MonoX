@@ -2,7 +2,8 @@
 # You can override any of these via CLI: e.g.
 #   python src/infra/launch.py dataset.path=/content/drive/MyDrive/MonoX/dataset training.log_dir=/content/drive/MyDrive/MonoX/logs
 
-defaults: []
+defaults:
+  - training: base
 
 dataset:
   path: ${oc.env:DATASET_DIR,}
