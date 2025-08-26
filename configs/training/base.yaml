@@ -1,3 +1,8 @@
+# @package _
+# Allow unknown fields to be added
+_target_: ~
+_recursive_: false
+
 training:
   total_kimg: 3000
   snapshot_kimg: 250

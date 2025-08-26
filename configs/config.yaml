@@ -6,6 +6,10 @@ defaults:
   - _self_
   - training: base
 
+# Allow unknown fields to be added via + syntax
+_target_: ~
+_recursive_: false
+
 dataset:
   path: ${oc.env:DATASET_DIR,""}
   resolution: 1024
