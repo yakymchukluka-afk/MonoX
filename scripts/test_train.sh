@@ -21,8 +21,9 @@ fi
 
 # Run smoke test with local launcher (skips actual training)
 echo "🔧 Testing config loading and validation..."
+# Using preferred dataset.name=ffs format (dataset=ffs also works)
 python3 train.py -cp configs -cn config \
-    dataset=ffs \
+    dataset.name=ffs \
     training.steps=10 \
     training.batch=2 \
     training.num_workers=0 \

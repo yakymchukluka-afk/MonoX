@@ -1,0 +1,3 @@
+- dataset.name=ffs
+- training.steps=10
+- launcher=local

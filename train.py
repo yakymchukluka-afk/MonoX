@@ -70,16 +70,28 @@ def main(cfg: DictConfig) -> None:
     # Resolve repo root from this file location, not from Hydra's runtime cwd
     repo_root = Path(__file__).resolve().parent
 
-    # Read config values with fallbacks to env vars if present
-    # Handle case where dataset might be a string (dataset config name) or dict (actual config)
+    # Normalize dataset configuration to handle both string and dict formats
+    # This fixes the AttributeError when using dataset=ffs vs dataset.name=ffs
     dataset_cfg = cfg.get("dataset", {})
     if isinstance(dataset_cfg, str):
-        # dataset=ffs case - create a minimal dataset config
+        # Case: dataset=ffs - Hydra replaces entire dataset config with string
+        # Normalize to dict format: {"name": "ffs"}
+        dataset_cfg = {"name": dataset_cfg}
+        dataset_name = dataset_cfg.get("name")
         dataset_path = os.environ.get("DATASET_DIR", "")
         resolution = 1024
     else:
-        dataset_path = str(dataset_cfg.get("path") or os.environ.get("DATASET_DIR", ""))
-        resolution = int(dataset_cfg.get("resolution", 1024))
+        # Case: dataset.name=ffs - Hydra preserves dict structure
+        # Handle DictConfig or regular dict - access directly without conversion
+        dataset_name = dataset_cfg.get("name") if dataset_cfg else None
+        dataset_path = str(dataset_cfg.get("path", "") or os.environ.get("DATASET_DIR", "")) if dataset_cfg else os.environ.get("DATASET_DIR", "")
+        resolution = int(dataset_cfg.get("resolution", 1024)) if dataset_cfg else 1024
+    
+    # Backfill defaults for known datasets
+    if dataset_name in ["ffs", "mead", "ucf101"]:
+        # Update resolution if not set
+        if not resolution or resolution == 1024:
+            resolution = 1024 if dataset_name == "ffs" else 256
 
     total_kimg = int(cfg.get("training", {}).get("total_kimg", 3000))
     snapshot_kimg = int(cfg.get("training", {}).get("snapshot_kimg", 250))
@@ -125,7 +137,7 @@ def main(cfg: DictConfig) -> None:
     if launcher_mode == "local":
         print("🔧 Local launcher mode - running configuration validation")
         print("=" * 50)
-        print(f"📁 Dataset: {cfg.get('dataset', 'default')}")
+        print(f"📁 Dataset: {dataset_name or 'default'}")
         print(f"🏋️  Training steps: {steps if steps is not None else f'{total_kimg}k images'}")
         print(f"📊 Batch size: {batch if batch is not None else 'default'}")
         print(f"🔄 Workers: {num_workers if num_workers is not None else 'default'}")

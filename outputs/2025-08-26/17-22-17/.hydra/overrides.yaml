@@ -1,0 +1,3 @@
+- dataset.name=mead
+- training.steps=5
+- launcher=local

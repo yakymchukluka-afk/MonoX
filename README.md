@@ -66,13 +66,16 @@ python train.py -cp configs -cn config dataset=ffs training.steps=10 training.ba
 ### Main Parameters
 
 - `dataset.path`: Path to your training dataset
-- `dataset`: Dataset configuration (ffs, ucf101, mead, etc.)
+- `dataset`: Dataset configuration (ffs, ucf101, mead, etc.) - legacy format
+- `dataset.name`: Preferred dataset name format (ffs, ucf101, mead, etc.)
 - `training.total_kimg`: Total training duration in thousands of images
 - `training.steps`: Override for quick testing (use instead of total_kimg)
 - `training.batch`: Batch size override
 - `training.num_workers`: DataLoader workers (set to 0 for Colab)
 - `training.fp16`: Enable/disable mixed precision training
 - `launcher`: Training mode (`stylegan` for full training, `local` for testing)
+
+> **Note**: Both `dataset=ffs` and `dataset.name=ffs` work interchangeably. The preferred format is `dataset.name=ffs`.
 
 ### Config Files
 
