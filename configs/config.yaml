@@ -3,14 +3,18 @@
 #   python src/infra/launch.py dataset.path=/content/drive/MyDrive/MonoX/dataset training.log_dir=/content/drive/MyDrive/MonoX/logs
 
 defaults:
-  - _self_
   - dataset: base
   - training: base
   - visualizer: base
+  - _self_
 
 # Allow unknown fields to be added via + syntax
 _target_: ~
 _recursive_: false
+_convert_: partial
+
+# Disable struct mode to allow dynamic config additions
+struct: false
 
 # Experiment configuration
 exp_suffix: ""  # Experiment name suffix
@@ -25,9 +29,6 @@ hydra:
   mode: RUN
   # Allow flexible overrides without strict validation
   strict: false
-  
-# Disable struct mode to allow dynamic config additions
-struct: false
 
 training:
   total_kimg: 3000
