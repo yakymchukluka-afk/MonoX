@@ -28,22 +28,33 @@ def _find_latest_checkpoint(checkpoint_dir: str) -> Optional[str]:
 
 
 def _ensure_styleganv_repo(repo_root: Path) -> Path:
+    """Ensure StyleGAN-V submodule is available and up to date."""
     external_dir = repo_root / ".external"
     external_dir.mkdir(parents=True, exist_ok=True)
     sgv_dir = external_dir / "stylegan-v"
 
     if (sgv_dir / ".git").is_file() or (sgv_dir / ".git").is_dir():
-        # Try to update
+        # Ensure we're on a proper branch and try to update
         try:
-            subprocess.run(["git", "-C", str(sgv_dir), "pull", "--ff-only"], check=False)
+            # Check if we're on a branch, if not checkout master
+            result = subprocess.run(["git", "-C", str(sgv_dir), "branch", "--show-current"], 
+                                   capture_output=True, text=True, check=False)
+            if not result.stdout.strip():
+                # We're in detached HEAD, checkout master
+                subprocess.run(["git", "-C", str(sgv_dir), "checkout", "master"], check=False)
+            
+            # Now try to pull from the correct remote
+            subprocess.run(["git", "-C", str(sgv_dir), "pull", "origin", "master"], check=False)
         except Exception:
             pass
         return sgv_dir
 
-    # Clone if missing
-    repo_url = "https://github.com/universome/stylegan-v"
+    # Clone if missing - use our fork with the fixes
+    repo_url = "https://github.com/yakymchukluka-afk/stylegan-v"
     print(f"Cloning StyleGAN-V from {repo_url} into {sgv_dir}...")
     subprocess.run(["git", "clone", repo_url, str(sgv_dir)], check=True)
+    # Ensure we're on master branch after cloning
+    subprocess.run(["git", "-C", str(sgv_dir), "checkout", "master"], check=False)
     return sgv_dir
 
 
