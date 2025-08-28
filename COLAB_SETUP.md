@@ -2,11 +2,24 @@
 
 ## Quick Setup
 
-Run this in your Colab cell to install all dependencies:
+**Option 1: Simple installer (recommended)**
+```python
+# Install dependencies with multiple fallback methods
+!cd /content/MonoX && python colab_install.py
+```
 
+**Option 2: Full setup script**
 ```python
 # Install dependencies
 !cd /content/MonoX && python setup_colab.py
+```
+
+**Option 3: Manual commands (if others fail)**
+```bash
+# Fix pip version compatibility
+!pip install 'pip<24.1'
+!pip install omegaconf==2.0.4
+!pip install hydra-core==1.0.7
 ```
 
 ## Manual Installation (if needed)

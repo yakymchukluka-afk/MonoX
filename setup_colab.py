@@ -26,8 +26,8 @@ def run_command(cmd, description=""):
 def main():
     print("🚀 Setting up MonoX for Google Colab training...")
     
-    # Update pip first
-    run_command("pip install --upgrade pip", "Upgrading pip")
+    # Downgrade pip to avoid metadata validation issues with older packages
+    run_command("pip install 'pip<24.1'", "Downgrading pip for compatibility")
     
     # Install PyTorch with CUDA support for Colab
     run_command(
@@ -35,9 +35,9 @@ def main():
         "Installing PyTorch with CUDA support"
     )
     
-    # Install core dependencies
+    # Install compatible versions that work together
+    run_command("pip install omegaconf==2.0.4", "Installing compatible OmegaConf")
     run_command("pip install hydra-core==1.0.7", "Installing Hydra")
-    run_command("pip install omegaconf==2.0.6", "Installing OmegaConf")
     
     # Install compatible pytorch-lightning
     run_command("pip install 'pytorch-lightning>=1.5.0,<1.8.0'", "Installing PyTorch Lightning")
