@@ -23,8 +23,24 @@ def force_nuclear_activation():
         shutil.rmtree(results_dir)
     
     # Step 2: Verify our nuclear torch fix is in place
-    training_loop_path = "/workspace/.external/stylegan-v/src/training/training_loop.py"
+    training_loop_path = "/content/MonoX/.external/stylegan-v/src/training/training_loop.py"
     print(f"🔍 Checking nuclear fix in: {training_loop_path}")
+    
+    if not os.path.exists(training_loop_path):
+        print(f"❌ File not found: {training_loop_path}")
+        print("🔍 Let's check what's available:")
+        base_dir = "/content/MonoX/.external/stylegan-v"
+        if os.path.exists(base_dir):
+            print(f"📁 Contents of {base_dir}:")
+            for item in os.listdir(base_dir):
+                print(f"   - {item}")
+            src_dir = os.path.join(base_dir, "src")
+            if os.path.exists(src_dir):
+                print(f"📁 Contents of {src_dir}:")
+                for item in os.listdir(src_dir):
+                    print(f"   - {item}")
+        print("⚠️  Proceeding without nuclear fix verification...")
+        return False
     
     with open(training_loop_path, 'r') as f:
         content = f.read()
@@ -74,7 +90,7 @@ def force_nuclear_activation():
     print("="*60)
     
     cmd = [
-        "python3", "/workspace/train_super_gpu_forced.py",
+        "python3", "/content/MonoX/train_super_gpu_forced.py",
         "exp_suffix=nuclear_forced",
         "dataset.path=/content/drive/MyDrive/MonoX/dataset",
         "dataset.resolution=256",
@@ -86,7 +102,7 @@ def force_nuclear_activation():
     
     # Set environment
     env = os.environ.copy()
-    env['PYTHONPATH'] = '/workspace/.external/stylegan-v/src'
+    env['PYTHONPATH'] = '/content/MonoX/.external/stylegan-v/src'
     env['CUDA_VISIBLE_DEVICES'] = '0'
     
     try:
@@ -96,7 +112,7 @@ def force_nuclear_activation():
             text=True,
             timeout=120,
             env=env,
-            cwd='/workspace'
+            cwd='/content/MonoX'
         )
         
         output = result.stdout + result.stderr
