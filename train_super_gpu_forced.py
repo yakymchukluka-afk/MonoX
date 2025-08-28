@@ -240,6 +240,7 @@ def main(cfg: DictConfig) -> None:
             f"+training.cond=false",  # ADD training.cond (conditional training)
             f"+training.nhwc=false",  # ADD training.nhwc (memory layout)
             f"+training.resume=null",  # ADD training.resume (resume from checkpoint)
+            f"+training.outdir=/content/MonoX/results",  # ADD training.outdir (output directory)
             f"visualizer.save_every_kimg={save_every_kimg}",
             f"visualizer.output_dir={output_dir}",
             f"sampling.truncation_psi={truncation_psi}"
