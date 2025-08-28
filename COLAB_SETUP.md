@@ -1,25 +1,26 @@
 # MonoX Colab Setup Guide
 
-## Quick Setup
+## Quick Setup (Python 3.12 Compatible)
 
-**Option 1: Simple installer (recommended)**
+**🎯 RECOMMENDED: Python 3.12 compatible installer**
+```python
+# Use newer Hydra version compatible with Python 3.12
+!cd /content/MonoX && python colab_install_v2.py
+!cd /content/MonoX && python update_configs_for_newer_hydra.py
+```
+
+**Option 2: Original installer (for older Python)**
 ```python
 # Install dependencies with multiple fallback methods
 !cd /content/MonoX && python colab_install.py
 ```
 
-**Option 2: Full setup script**
-```python
-# Install dependencies
-!cd /content/MonoX && python setup_colab.py
-```
-
 **Option 3: Manual commands (if others fail)**
 ```bash
-# Fix pip version compatibility
-!pip install 'pip<24.1'
-!pip install omegaconf==2.0.4
-!pip install hydra-core==1.0.7
+# Python 3.12 compatible versions
+!pip install hydra-core>=1.2.0
+!pip install omegaconf>=2.2.0
+!pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
 ```
 
 ## Manual Installation (if needed)
