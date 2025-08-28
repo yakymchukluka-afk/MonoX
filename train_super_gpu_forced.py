@@ -221,6 +221,7 @@ def main(cfg: DictConfig) -> None:
             f"+training.data={dataset_path}",  # ADD training.data (required parameter)
             f"+model.loss_kwargs.style_mixing_prob=0.0",  # ADD model.loss_kwargs (required parameter)
             f"+training.num_workers=8",  # ADD training.num_workers (required parameter)
+            f"+training.subset=null",  # ADD training.subset (required parameter)
             f"visualizer.save_every_kimg={save_every_kimg}",
             f"visualizer.output_dir={output_dir}",
             f"sampling.truncation_psi={truncation_psi}"
