@@ -223,6 +223,7 @@ def main(cfg: DictConfig) -> None:
             f"+training.num_workers=8",  # ADD training.num_workers (required parameter)
             f"+training.subset=null",  # ADD training.subset (required parameter)
             f"+training.mirror=true",  # ADD training.mirror (required parameter)
+            f"+training.cfg=auto",  # ADD training.cfg (required parameter)
             f"visualizer.save_every_kimg={save_every_kimg}",
             f"visualizer.output_dir={output_dir}",
             f"sampling.truncation_psi={truncation_psi}"
