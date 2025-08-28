@@ -233,6 +233,13 @@ def main(cfg: DictConfig) -> None:
             f"+training.cfg=auto",  # ADD training.cfg (required parameter)
             f"+training.aug=ada",  # ADD training.aug (required parameter)
             f"+training.p=null",  # ADD training.p (augmentation probability, null for auto)
+            f"+training.target=0.6",  # ADD training.target (ADA target value)
+            f"+training.augpipe=bgc",  # ADD training.augpipe (augmentation pipeline)
+            f"+training.freezed=0",  # ADD training.freezed (freeze discriminator layers)
+            f"+training.dry_run=false",  # ADD training.dry_run (dry run mode)
+            f"+training.cond=false",  # ADD training.cond (conditional training)
+            f"+training.nhwc=false",  # ADD training.nhwc (memory layout)
+            f"+training.resume=null",  # ADD training.resume (resume from checkpoint)
             f"visualizer.save_every_kimg={save_every_kimg}",
             f"visualizer.output_dir={output_dir}",
             f"sampling.truncation_psi={truncation_psi}"
