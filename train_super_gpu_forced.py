@@ -211,7 +211,7 @@ def main(cfg: DictConfig) -> None:
             f"training.snap={snapshot_kimg}",
             f"num_gpus={num_gpus}",
             f"++training.gpus={num_gpus}",  # OVERRIDE training.gpus (++ prefix for override)
-            f"+training.batch_size=8",  # ADD training.batch_size (+ prefix to append)
+            f"++training.batch_size=8",  # OVERRIDE training.batch_size (++ prefix to override existing)
             f"+training.fp32=false",  # ADD training.fp32 (+ prefix to append)
             f"+training.nobench=false",  # ADD training.nobench (+ prefix to append)
             f"+training.allow_tf32=false",  # ADD training.allow_tf32 (+ prefix to append)
