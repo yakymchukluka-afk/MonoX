@@ -224,6 +224,8 @@ def main(cfg: DictConfig) -> None:
             f"+model.discriminator.source=networks",  # ADD model.discriminator.source (required parameter)
             f"+model.generator.source=networks",  # ADD model.generator.source (required parameter)
             f"+model.generator.w_dim=512",  # ADD model.generator.w_dim (required parameter)
+            f"+model.optim.generator.lr=0.002",  # ADD model.optim.generator (required parameter)
+            f"+model.optim.discriminator.lr=0.002",  # ADD model.optim.discriminator (required parameter)
             f"+training.num_workers=8",  # ADD training.num_workers (required parameter)
             f"+training.subset=null",  # ADD training.subset (required parameter)
             f"+training.mirror=true",  # ADD training.mirror (required parameter)
