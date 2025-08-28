@@ -210,7 +210,7 @@ def main(cfg: DictConfig) -> None:
             f"training.kimg={total_kimg}",
             f"training.snap={snapshot_kimg}",
             f"num_gpus={num_gpus}",
-            f"+training.gpus={num_gpus}",  # ADD training.gpus (Hydra suggested + prefix)
+            f"++training.gpus={num_gpus}",  # OVERRIDE training.gpus (++ prefix for override)
             f"gpus={num_gpus}",  # Also set top-level for safety
             f"+training.batch_size=8",  # ADD training.batch_size (+ prefix to append)
             f"+training.fp32=false",  # ADD training.fp32 (+ prefix to append)
