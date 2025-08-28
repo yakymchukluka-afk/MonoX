@@ -131,11 +131,13 @@ def main(cfg: DictConfig) -> None:
                 print(f"     {arg} \\")
         print("=" * 80)
 
-        # Enhanced environment setup
+        # Enhanced environment setup - Force GPU usage
         env = os.environ.copy()
         env["PYTHONUNBUFFERED"] = "1"
         env["TORCH_EXTENSIONS_DIR"] = "/tmp/torch_extensions"
         env["CUDA_VISIBLE_DEVICES"] = "0"  # Ensure GPU 0 is used
+        env["CUDA_LAUNCH_BLOCKING"] = "1"  # Better CUDA error reporting
+        env["TORCH_USE_CUDA_DSA"] = "1"    # Enable CUDA memory debugging
         
         existing_pp = env.get("PYTHONPATH", "")
         env["PYTHONPATH"] = (str(sgv_dir) + (":" + existing_pp if existing_pp else ""))
