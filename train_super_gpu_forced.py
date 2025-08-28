@@ -210,11 +210,11 @@ def main(cfg: DictConfig) -> None:
             f"training.kimg={total_kimg}",
             f"training.snap={snapshot_kimg}",
             f"num_gpus={num_gpus}",
-            f"gpus={num_gpus}",  # Both parameters for safety
-            f"batch_size=8",  # NUCLEAR: Increased batch size for heavy GPU utilization
-            f"fp32=false",  # Use mixed precision (top level)
-            f"nobench=false",  # Enable cuDNN benchmarking (top level)
-            f"allow_tf32=false",  # Disable TF32 for compatibility (top level)
+            f"training.gpus={num_gpus}",  # FIXED: Proper training.gpus parameter
+            f"training.batch_size=8",  # NUCLEAR: Increased batch size for heavy GPU utilization
+            f"training.fp32=false",  # Use mixed precision
+            f"training.nobench=false",  # Enable cuDNN benchmarking
+            f"training.allow_tf32=false",  # Disable TF32 for compatibility
             f"visualizer.save_every_kimg={save_every_kimg}",
             f"visualizer.output_dir={output_dir}",
             f"sampling.truncation_psi={truncation_psi}"
