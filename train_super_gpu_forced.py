@@ -221,6 +221,7 @@ def main(cfg: DictConfig) -> None:
             f"+training.data={dataset_path}",  # ADD training.data (required parameter)
             f"+model.loss_kwargs.style_mixing_prob=0.0",  # ADD model.loss_kwargs (required parameter)
             f"+model.discriminator.mbstd_group_size=4",  # ADD model.discriminator (required parameter)
+            f"+model.generator.source=networks",  # ADD model.generator.source (required parameter)
             f"+training.num_workers=8",  # ADD training.num_workers (required parameter)
             f"+training.subset=null",  # ADD training.subset (required parameter)
             f"+training.mirror=true",  # ADD training.mirror (required parameter)
