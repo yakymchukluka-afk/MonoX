@@ -257,8 +257,14 @@ def main():
     
     start_time = time.time()
     
+    # Ensure we're in the right location
+    if not os.path.exists(MONOX_ROOT):
+        print(f"Creating MonoX directory: {MONOX_ROOT}")
+        os.makedirs(MONOX_ROOT, exist_ok=True)
+    
     # Change to MonoX directory
-    os.chdir(MONOX_ROOT if os.path.exists(MONOX_ROOT) else "/content")
+    os.chdir(MONOX_ROOT)
+    print(f"Working directory: {os.getcwd()}")
     
     try:
         # 1. Check GPU
