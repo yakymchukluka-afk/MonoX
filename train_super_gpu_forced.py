@@ -216,6 +216,7 @@ def main(cfg: DictConfig) -> None:
             f"+training.fp32=false",  # ADD training.fp32 (+ prefix to append)
             f"+training.nobench=false",  # ADD training.nobench (+ prefix to append)
             f"+training.allow_tf32=false",  # ADD training.allow_tf32 (+ prefix to append)
+            f"+training.metrics=[fid50k_full]",  # ADD training.metrics (required parameter)
             f"visualizer.save_every_kimg={save_every_kimg}",
             f"visualizer.output_dir={output_dir}",
             f"sampling.truncation_psi={truncation_psi}"
