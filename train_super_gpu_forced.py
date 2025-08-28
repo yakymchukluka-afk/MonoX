@@ -211,7 +211,7 @@ def main(cfg: DictConfig) -> None:
             f"training.snap={snapshot_kimg}",
             f"num_gpus={num_gpus}",
             f"gpus={num_gpus}",  # Both parameters for safety
-            f"batch_size=4",  # Small batch to ensure GPU usage (top level)
+            f"batch_size=8",  # NUCLEAR: Increased batch size for heavy GPU utilization
             f"fp32=false",  # Use mixed precision (top level)
             f"nobench=false",  # Enable cuDNN benchmarking (top level)
             f"allow_tf32=false",  # Disable TF32 for compatibility (top level)
