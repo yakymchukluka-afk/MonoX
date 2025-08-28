@@ -212,10 +212,10 @@ def main(cfg: DictConfig) -> None:
             f"num_gpus={num_gpus}",
             f"+training.gpus={num_gpus}",  # ADD training.gpus (Hydra suggested + prefix)
             f"gpus={num_gpus}",  # Also set top-level for safety
-            f"training.batch_size=8",  # Override existing batch_size
-            f"training.fp32=false",  # Override existing fp32
-            f"training.nobench=false",  # Override existing nobench  
-            f"training.allow_tf32=false",  # Override existing allow_tf32
+            f"+training.batch_size=8",  # ADD training.batch_size (+ prefix to append)
+            f"+training.fp32=false",  # ADD training.fp32 (+ prefix to append)
+            f"+training.nobench=false",  # ADD training.nobench (+ prefix to append)
+            f"+training.allow_tf32=false",  # ADD training.allow_tf32 (+ prefix to append)
             f"visualizer.save_every_kimg={save_every_kimg}",
             f"visualizer.output_dir={output_dir}",
             f"sampling.truncation_psi={truncation_psi}"
