@@ -1,10 +1,8 @@
-# Base visualizer configuration for MonoX
-# Defines preview generation settings during training
+# @package _global_
+# Base visualizer configuration
 
-save_every_kimg: 50
-output_dir: ${oc.env:PREVIEWS_DIR,previews}
-
-# Additional visualization settings
-grid_size: 4
-num_samples: 16
-truncation_psi: 1.0
+visualizer:
+  save_every_kimg: 50
+  output_dir: ${oc.env:PREVIEWS_DIR,previews}
+  grid_size: 4
+  num_samples: 16
