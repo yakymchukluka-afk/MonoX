@@ -240,9 +240,9 @@ def main(cfg: DictConfig) -> None:
             f"++training.nhwc=false",  # OVERRIDE training.nhwc (++ prefix to override existing)
             f"++training.resume=null",  # OVERRIDE training.resume (++ prefix to override existing)
             f"++training.outdir=/content/MonoX/results",  # OVERRIDE training.outdir (++ prefix to override existing)
-            f"visualizer.save_every_kimg={save_every_kimg}",
-            f"visualizer.output_dir={output_dir}",
-            f"sampling.truncation_psi={truncation_psi}"
+            f"+visualizer.save_every_kimg={save_every_kimg}",  # ADD visualizer.save_every_kimg (+ prefix to create new section)
+            f"+visualizer.output_dir={output_dir}",  # ADD visualizer.output_dir (+ prefix to create new section)
+            f"+sampling.truncation_psi={truncation_psi}"  # ADD sampling.truncation_psi (+ prefix to create new parameter)
         ]
         
         print("🔥 SUPER GPU-FORCED StyleGAN-V Command:")
