@@ -1,0 +1,56 @@
+# Mono Project StyleGAN-V Training Configuration
+# This file defines the complete training setup for 1024x1024 video generation
+
+defaults:
+  - model/base.yaml
+  - model: stylegan-v
+  
+  # Use our custom dataset configuration
+  - dataset/base.yaml
+  - dataset: mono_project
+  
+  - sampling/base.yaml
+  - sampling: random3_max32
+  
+  - env/base.yaml
+  - env: local
+  - infra.yaml
+  
+  # Use our custom training configuration
+  - training/base.yaml
+  - training: mono_training
+
+# Number of GPUs to use (adjust based on available hardware)
+num_gpus: 4
+
+# Experiment naming
+exp_suffix: mono_project_1024px
+
+# Project structure
+experiments_dir: /workspace/stylegan-stack/experiments
+logs_dir: /workspace/stylegan-stack/logs
+previews_dir: /workspace/stylegan-stack/generated_previews
+
+# Override any specific parameters
+model:
+  generator:
+    # Ensure we're using the right time encoding for good temporal consistency
+    time_enc:
+      min_period_len: 16
+      max_period_len: 1024
+      phase_dropout_std: 1.0
+
+dataset:
+  resolution: 1024
+  fps: 30
+  path: /workspace/stylegan-stack/data/originals/
+
+training:
+  # 3000 kimg total, checkpoint every 250 kimg
+  kimg: 3000
+  snap: 250
+  # Smaller batch size for 1024x1024 to fit in memory
+  batch_size: 16
+  # Enable mixed precision training
+  fp32: false
+  allow_tf32: true
