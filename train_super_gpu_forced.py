@@ -232,6 +232,7 @@ def main(cfg: DictConfig) -> None:
             f"+training.mirror=true",  # ADD training.mirror (required parameter)
             f"+training.cfg=auto",  # ADD training.cfg (required parameter)
             f"+training.aug=ada",  # ADD training.aug (required parameter)
+            f"+training.p=null",  # ADD training.p (augmentation probability, null for auto)
             f"visualizer.save_every_kimg={save_every_kimg}",
             f"visualizer.output_dir={output_dir}",
             f"sampling.truncation_psi={truncation_psi}"
