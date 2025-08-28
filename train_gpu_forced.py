@@ -165,7 +165,7 @@ def main(cfg: DictConfig) -> None:
             f"dataset.resolution={resolution}",
             f"training.kimg={total_kimg}",
             f"training.snap={snapshot_kimg}",
-            f"training.gpus={num_gpus}",  # Explicit GPU count
+            f"gpus={num_gpus}",  # Correct parameter name for StyleGAN-V
             f"visualizer.save_every_kimg={save_every_kimg}",
             f"visualizer.output_dir={output_dir}",
             f"sampling.truncation_psi={truncation_psi}",
