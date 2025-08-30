@@ -636,3 +636,7 @@ async def get_sample_summary():
         
     except Exception as e:
         return {"error": f"Failed to get sample summary: {str(e)}"}
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 7860))
+    uvicorn.run(app, host="0.0.0.0", port=port)
