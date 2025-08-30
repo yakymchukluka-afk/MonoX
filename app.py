@@ -128,9 +128,12 @@ async def run_training():
         
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
-        # Create directories
+        # Create organized directory structure
         os.makedirs("/tmp/checkpoints", exist_ok=True)
         os.makedirs("/tmp/samples", exist_ok=True)
+        os.makedirs("/tmp/samples/training_progress", exist_ok=True)
+        os.makedirs("/tmp/samples/individual_samples", exist_ok=True)
+        os.makedirs("/tmp/samples/grids", exist_ok=True)
         
         # Initialize models
         generator = Generator().to(device)
@@ -220,7 +223,7 @@ async def run_training():
             training_status["current_step"] = epoch + 1
             training_status["message"] = f"Epoch {epoch+1}: D_loss={avg_d_loss:.4f}, G_loss={avg_g_loss:.4f}"
             
-            # Save checkpoint every 5 epochs
+            # Save checkpoint and samples every 5 epochs
             if (epoch + 1) % 5 == 0:
                 checkpoint_file = f"/tmp/checkpoints/monox_generator_{epoch+1:05d}.pth"
                 torch.save({
@@ -229,14 +232,41 @@ async def run_training():
                     'discriminator_state_dict': discriminator.state_dict(),
                     'optimizer_G_state_dict': optimizer_G.state_dict(),
                     'optimizer_D_state_dict': optimizer_D.state_dict(),
+                    'generator_loss': avg_g_loss,
+                    'discriminator_loss': avg_d_loss,
+                    'timestamp': time.time()
                 }, checkpoint_file)
                 
-                # Generate sample
+                # Generate comprehensive samples for this checkpoint
                 with torch.no_grad():
-                    sample_z = torch.randn(4, 128).to(device)
-                    sample_imgs = generator(sample_z)
-                    sample_file = f"/tmp/samples/epoch_{epoch+1:05d}.png"
-                    save_image(sample_imgs, sample_file, nrow=2, normalize=True, value_range=(-1, 1))
+                    # 1. Training progress grid (4x4 = 16 samples)
+                    progress_z = torch.randn(16, 128).to(device)
+                    progress_imgs = generator(progress_z)
+                    progress_file = f"/tmp/samples/training_progress/epoch_{epoch+1:05d}_grid.png"
+                    save_image(progress_imgs, progress_file, nrow=4, normalize=True, value_range=(-1, 1))
+                    
+                    # 2. Individual high-quality samples
+                    for i in range(8):
+                        single_z = torch.randn(1, 128).to(device)
+                        single_img = generator(single_z)
+                        single_file = f"/tmp/samples/individual_samples/epoch_{epoch+1:05d}_sample_{i+1:02d}.png"
+                        save_image(single_img, single_file, normalize=True, value_range=(-1, 1))
+                    
+                    # 3. Comparison grid (2x4 = 8 samples for easy comparison)
+                    comparison_z = torch.randn(8, 128).to(device)
+                    comparison_imgs = generator(comparison_z)
+                    comparison_file = f"/tmp/samples/grids/epoch_{epoch+1:05d}_comparison.png"
+                    save_image(comparison_imgs, comparison_file, nrow=4, normalize=True, value_range=(-1, 1))
+                    
+                    # 4. Fixed seed samples for consistent comparison
+                    torch.manual_seed(42)  # Fixed seed for consistency
+                    fixed_z = torch.randn(4, 128).to(device)
+                    fixed_imgs = generator(fixed_z)
+                    fixed_file = f"/tmp/samples/training_progress/epoch_{epoch+1:05d}_fixed_seed.png"
+                    save_image(fixed_imgs, fixed_file, nrow=2, normalize=True, value_range=(-1, 1))
+                    torch.manual_seed(int(time.time()))  # Reset to random seed
+                
+                training_status["message"] = f"Epoch {epoch+1}: Checkpoint saved with {24} samples generated"
             
             await asyncio.sleep(0.1)
         
@@ -288,10 +318,12 @@ async def root():
             </div>
             
             <div class="section">
-                <h4>🎨 Art Generation</h4>
-                <p>Generate samples using trained models.</p>
+                <h4>🎨 Art Generation & Samples</h4>
+                <p>Generate samples and browse training progress.</p>
                 <button onclick="generateSample()">Generate Sample</button>
                 <button onclick="listCheckpoints()">List Checkpoints</button>
+                <button onclick="browseSamples()">Browse Samples</button>
+                <button onclick="getSampleSummary()">Sample Summary</button>
             </div>
             
             <script>
@@ -332,7 +364,7 @@ async def root():
                         if (result.count > 0) {{
                             let msg = `Found ${{result.count}} checkpoints:\\n\\n`;
                             result.checkpoints.forEach(ckpt => {{
-                                msg += `Epoch ${{ckpt.epoch}}: ${{ckpt.name}}\\n`;
+                                msg += `Epoch ${{ckpt.epoch}}: ${{ckpt.name}} (${{ckpt.size_mb}}MB)\\n`;
                             }});
                             alert(msg);
                         }} else {{
@@ -340,6 +372,57 @@ async def root():
                         }}
                     }} catch (e) {{
                         alert('Error listing checkpoints: ' + e.message);
+                    }}
+                }}
+                
+                async function browseSamples() {{
+                    try {{
+                        const response = await fetch('/api/samples');
+                        const result = await response.json();
+                        if (result.total_count > 0) {{
+                            let msg = `Generated Samples (${{result.total_count}} total):\\n\\n`;
+                            msg += `📊 Training Progress: ${{result.training_progress.length}} files\\n`;
+                            msg += `🎨 Individual Samples: ${{result.individual_samples.length}} files\\n`;
+                            msg += `🖼️ Grids: ${{result.grids.length}} files\\n\\n`;
+                            
+                            if (result.training_progress.length > 0) {{
+                                msg += `Latest Progress Samples:\\n`;
+                                result.training_progress.slice(0, 5).forEach(sample => {{
+                                    msg += `  Epoch ${{sample.epoch}}: ${{sample.name}}\\n`;
+                                }});
+                            }}
+                            alert(msg);
+                        }} else {{
+                            alert('No samples found. Start training to generate samples!');
+                        }}
+                    }} catch (e) {{
+                        alert('Error browsing samples: ' + e.message);
+                    }}
+                }}
+                
+                async function getSampleSummary() {{
+                    try {{
+                        const response = await fetch('/api/sample-summary');
+                        const result = await response.json();
+                        if (result.summary) {{
+                            let msg = `Sample Generation Summary:\\n\\n`;
+                            msg += `📊 Training Progress: ${{result.summary.training_progress_samples}} samples\\n`;
+                            msg += `🎨 Individual Samples: ${{result.summary.individual_samples}} samples\\n`;
+                            msg += `🖼️ Grid Samples: ${{result.summary.grid_samples}} samples\\n`;
+                            msg += `📁 Total Samples: ${{result.summary.total_samples}}\\n\\n`;
+                            
+                            if (result.summary.latest_samples && result.summary.latest_samples.length > 0) {{
+                                msg += `Latest Generated:\\n`;
+                                result.summary.latest_samples.forEach(sample => {{
+                                    msg += `  ${{sample.category}}: Epoch ${{sample.epoch}}\\n`;
+                                }});
+                            }}
+                            alert(msg);
+                        }} else {{
+                            alert('No sample data available yet.');
+                        }}
+                    }} catch (e) {{
+                        alert('Error getting sample summary: ' + e.message);
                     }}
                 }}
             </script>
@@ -456,6 +539,99 @@ async def generate_sample():
     except Exception as e:
         return {"message": f"Generation failed: {str(e)}", "status": "error"}
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 7860))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+@app.get("/api/samples")
+async def list_samples():
+    """List all saved samples organized by type."""
+    try:
+        samples_info = {
+            "training_progress": [],
+            "individual_samples": [],
+            "grids": [],
+            "total_count": 0
+        }
+        
+        base_dir = Path("/tmp/samples")
+        if not base_dir.exists():
+            return samples_info
+        
+        # Scan each category
+        categories = ["training_progress", "individual_samples", "grids"]
+        
+        for category in categories:
+            category_dir = base_dir / category
+            if category_dir.exists():
+                for sample_file in category_dir.glob("*.png"):
+                    stat = os.stat(sample_file)
+                    
+                    # Extract epoch from filename
+                    try:
+                        epoch_num = int(sample_file.name.split('_')[1])
+                    except:
+                        epoch_num = 0
+                    
+                    sample_info = {
+                        "name": sample_file.name,
+                        "epoch": epoch_num,
+                        "category": category,
+                        "size_kb": round(stat.st_size / 1024, 1),
+                        "modified": stat.st_mtime
+                    }
+                    
+                    samples_info[category].append(sample_info)
+                    samples_info["total_count"] += 1
+        
+        # Sort by epoch (newest first)
+        for category in categories:
+            samples_info[category].sort(key=lambda x: x["epoch"], reverse=True)
+        
+        return samples_info
+        
+    except Exception as e:
+        return {"error": f"Failed to list samples: {str(e)}", "total_count": 0}
+
+@app.get("/api/sample-summary")
+async def get_sample_summary():
+    """Get summary of sample generation during training."""
+    try:
+        base_dir = Path("/tmp/samples")
+        if not base_dir.exists():
+            return {"message": "No samples directory found", "summary": {}}
+        
+        summary = {
+            "training_progress_samples": len(list((base_dir / "training_progress").glob("*.png"))) if (base_dir / "training_progress").exists() else 0,
+            "individual_samples": len(list((base_dir / "individual_samples").glob("*.png"))) if (base_dir / "individual_samples").exists() else 0,
+            "grid_samples": len(list((base_dir / "grids").glob("*.png"))) if (base_dir / "grids").exists() else 0,
+            "total_samples": 0
+        }
+        
+        summary["total_samples"] = sum(summary.values())
+        
+        # Get latest samples info
+        latest_samples = []
+        for category in ["training_progress", "individual_samples", "grids"]:
+            category_dir = base_dir / category
+            if category_dir.exists():
+                category_files = list(category_dir.glob("*.png"))
+                if category_files:
+                    latest_file = max(category_files, key=lambda x: x.stat().st_mtime)
+                    try:
+                        epoch_num = int(latest_file.name.split('_')[1])
+                    except:
+                        epoch_num = 0
+                    latest_samples.append({
+                        "category": category,
+                        "filename": latest_file.name,
+                        "epoch": epoch_num
+                    })
+        
+        summary["latest_samples"] = latest_samples
+        summary["sample_folder_structure"] = {
+            "training_progress": "4x4 grids + fixed seed samples for progress tracking",
+            "individual_samples": "High-quality individual samples (8 per checkpoint)",
+            "grids": "Comparison grids (2x4 layout for easy viewing)"
+        }
+        
+        return {"summary": summary, "message": "Sample summary generated successfully"}
+        
+    except Exception as e:
+        return {"error": f"Failed to get sample summary: {str(e)}"}
