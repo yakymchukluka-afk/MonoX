@@ -147,12 +147,15 @@ def find_latest_checkpoint(checkpoint_dir="/tmp/checkpoints"):
     return str(latest_file) if latest_file else None, latest_epoch
 
 async def run_training():
-    """Run MonoX training from scratch."""
+    """Run MonoX 1024px training from scratch."""
     global training_status
     
     try:
         training_status["is_training"] = True
-        training_status["message"] = "Initializing fresh training..."
+        training_status["message"] = "Initializing 1024px training..."
+        
+        print("🚀 Starting MonoX 1024px training...")
+        print(f"🖥️ Device: {'GPU' if torch.cuda.is_available() else 'CPU'}")
         
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
@@ -362,6 +365,7 @@ async def root():
                 <h4>🚀 High-Resolution Training System (1024px)</h4>
                 <p>Ready to start fresh 1024×1024 training from epoch 0. Current status: {current_training_message}</p>
                 <p><em>Memory-optimized for high-resolution generation with reduced batch sizes.</em></p>
+                <button onclick="testAPI()">Test API</button>
                 <button onclick="startTraining()">Start 1024px Training</button>
                 <button onclick="checkTrainingStatus()">Check Training Status</button>
             </div>
@@ -376,9 +380,24 @@ async def root():
             </div>
             
             <script>
+                async function testAPI() {{
+                    try {{
+                        const response = await fetch('/api/test');
+                        const result = await response.json();
+                        alert(`API Test: ${{result.message}}\\nResolution: ${{result.resolution}}\\nStatus: ${{result.status}}`);
+                    }} catch (e) {{
+                        alert('API Test Error: ' + e.message);
+                    }}
+                }}
+                
                 async function startTraining() {{
                     try {{
                         const response = await fetch('/api/train', {{method: 'POST'}});
+                        if (!response.ok) {{
+                            const errorText = await response.text();
+                            alert(`HTTP Error ${{response.status}}: ${{errorText.substring(0, 200)}}...`);
+                            return;
+                        }}
                         const result = await response.json();
                         alert(result.message);
                     }} catch (e) {{
@@ -495,27 +514,48 @@ async def health_check():
         "status": "healthy",
         "gpu_available": torch.cuda.is_available(),
         "torch_version": torch.__version__,
+        "resolution": "1024x1024",
         "message": "MonoX Space is running successfully"
+    }
+
+@app.get("/api/test")
+async def test_api():
+    """Test API endpoint to verify JSON responses."""
+    return {
+        "message": "API is working correctly",
+        "timestamp": time.time(),
+        "resolution": "1024x1024",
+        "status": "ok"
     }
 
 @app.post("/api/train")
 async def start_training(background_tasks: BackgroundTasks):
-    """Start MonoX training."""
-    global training_status
-    
-    if training_status["is_training"]:
-        return {"message": "Training is already in progress", "status": "running"}
-    
-    latest_checkpoint, latest_epoch = find_latest_checkpoint()
-    checkpoint_info = f"from epoch {latest_epoch}" if latest_checkpoint else "from scratch"
-    
-    background_tasks.add_task(run_training)
-    
-    return {
-        "message": f"Training started {checkpoint_info}",
-        "epoch": latest_epoch,
-        "status": "started"
-    }
+    """Start MonoX 1024px training."""
+    try:
+        global training_status
+        
+        if training_status["is_training"]:
+            return {"message": "Training is already in progress", "status": "running"}
+        
+        latest_checkpoint, latest_epoch = find_latest_checkpoint()
+        checkpoint_info = f"from epoch {latest_epoch}" if latest_checkpoint else "from scratch (1024px)"
+        
+        # Add the training task
+        background_tasks.add_task(run_training)
+        
+        return {
+            "message": f"1024px training started {checkpoint_info}",
+            "epoch": latest_epoch,
+            "resolution": "1024x1024",
+            "status": "started"
+        }
+        
+    except Exception as e:
+        return {
+            "message": f"Failed to start training: {str(e)}",
+            "status": "error",
+            "error_type": "training_start_error"
+        }
 
 @app.get("/api/training-status")
 async def get_training_status():
