@@ -22,10 +22,10 @@ async def root():
     <head>
         <title>MonoX - StyleGAN-V Art Project</title>
         <style>
-            body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
-            .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
-            h1 { color: #333; text-align: center; }
-            .info { background: #e8f4fd; padding: 20px; border-radius: 5px; margin: 20px 0; }
+            body {{ font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }}
+            .container {{ max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }}
+            h1 {{ color: #333; text-align: center; }}
+            .info {{ background: #e8f4fd; padding: 20px; border-radius: 5px; margin: 20px 0; }}
         </style>
     </head>
     <body>
