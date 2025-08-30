@@ -29,27 +29,44 @@ training_status = {"is_training": False, "current_step": 0, "message": "Ready to
 class Generator(nn.Module):
     def __init__(self, latent_dim=128):
         super().__init__()
-        self.init_size = 64
-        self.l1 = nn.Sequential(nn.Linear(latent_dim, 128 * self.init_size ** 2))
+        # For 1024px output: 64 -> 128 -> 256 -> 512 -> 1024 (4 upsampling steps)
+        self.init_size = 64  # Starting size: 64x64
+        self.l1 = nn.Sequential(nn.Linear(latent_dim, 256 * self.init_size ** 2))
 
         self.conv_blocks = nn.Sequential(
-            nn.BatchNorm2d(128),
+            # 64x64 -> 128x128
+            nn.BatchNorm2d(256),
             nn.Upsample(scale_factor=2),
-            nn.Conv2d(128, 128, 3, stride=1, padding=1),
+            nn.Conv2d(256, 256, 3, stride=1, padding=1),
+            nn.BatchNorm2d(256, 0.8),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            # 128x128 -> 256x256  
+            nn.Upsample(scale_factor=2),
+            nn.Conv2d(256, 128, 3, stride=1, padding=1),
             nn.BatchNorm2d(128, 0.8),
             nn.LeakyReLU(0.2, inplace=True),
+            
+            # 256x256 -> 512x512
             nn.Upsample(scale_factor=2),
             nn.Conv2d(128, 64, 3, stride=1, padding=1),
             nn.BatchNorm2d(64, 0.8),
             nn.LeakyReLU(0.2, inplace=True),
+            
+            # 512x512 -> 1024x1024
             nn.Upsample(scale_factor=2),
-            nn.Conv2d(64, 3, 3, stride=1, padding=1),
+            nn.Conv2d(64, 32, 3, stride=1, padding=1),
+            nn.BatchNorm2d(32, 0.8),
+            nn.LeakyReLU(0.2, inplace=True),
+            
+            # Final layer to RGB
+            nn.Conv2d(32, 3, 3, stride=1, padding=1),
             nn.Tanh(),
         )
 
     def forward(self, z):
         out = self.l1(z)
-        out = out.view(out.shape[0], 128, self.init_size, self.init_size)
+        out = out.view(out.shape[0], 256, self.init_size, self.init_size)
         return self.conv_blocks(out)
 
 class Discriminator(nn.Module):
@@ -62,14 +79,17 @@ class Discriminator(nn.Module):
                 layers.append(nn.BatchNorm2d(out_filters, 0.8))
             return layers
 
+        # For 1024px input: 1024 -> 512 -> 256 -> 128 -> 64 -> 32 (5 downsampling steps)
         self.model = nn.Sequential(
-            *block(3, 16, bn=False),
-            *block(16, 32),
-            *block(32, 64),
-            *block(64, 128),
+            *block(3, 32, bn=False),    # 1024 -> 512
+            *block(32, 64),             # 512 -> 256  
+            *block(64, 128),            # 256 -> 128
+            *block(128, 256),           # 128 -> 64
+            *block(256, 512),           # 64 -> 32
         )
 
-        self.adv_layer = nn.Sequential(nn.Linear(128 * 32 ** 2, 1), nn.Sigmoid())
+        # Calculate final size: 1024 / (2^5) = 32, so 512 * 32 * 32
+        self.adv_layer = nn.Sequential(nn.Linear(512 * 32 * 32, 1), nn.Sigmoid())
 
     def forward(self, img):
         out = self.model(img)
@@ -77,7 +97,7 @@ class Discriminator(nn.Module):
         return self.adv_layer(out)
 
 class SyntheticDataset(Dataset):
-    """Simple synthetic dataset for training demo."""
+    """Synthetic dataset for 1024px training demo."""
     def __init__(self, size=100, transform=None):
         self.size = size
         self.transform = transform
@@ -86,9 +106,17 @@ class SyntheticDataset(Dataset):
         return self.size
 
     def __getitem__(self, idx):
-        # Generate synthetic art-like images
-        image = Image.new('RGB', (512, 512))
-        pixels = np.random.randint(0, 255, (512, 512, 3), dtype=np.uint8)
+        # Generate synthetic art-like images at 1024px
+        image = Image.new('RGB', (1024, 1024))
+        # Create more artistic patterns for 1024px
+        pixels = np.random.randint(0, 255, (1024, 1024, 3), dtype=np.uint8)
+        
+        # Add some structure to make it more art-like
+        center_x, center_y = 512, 512
+        y, x = np.ogrid[:1024, :1024]
+        mask = (x - center_x)**2 + (y - center_y)**2 < (300 + idx * 10)**2
+        pixels[mask] = pixels[mask] * 0.7 + 76  # Artistic effect
+        
         image = Image.fromarray(pixels)
         
         if self.transform:
@@ -162,31 +190,37 @@ async def run_training():
             optimizer_G.load_state_dict(checkpoint['optimizer_G_state_dict'])
             optimizer_D.load_state_dict(checkpoint['optimizer_D_state_dict'])
         
-        # Setup dataset and loss
+        # Setup dataset and loss for 1024px
         transform = transforms.Compose([
-            transforms.Resize((512, 512)),
+            transforms.Resize((1024, 1024)),
             transforms.ToTensor(),
             transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
         ])
         
+        # Reduced batch size for 1024px training (memory constraints)
         dataset = SyntheticDataset(size=50, transform=transform)
-        dataloader = DataLoader(dataset, batch_size=4, shuffle=True, num_workers=0)
+        dataloader = DataLoader(dataset, batch_size=2, shuffle=True, num_workers=0)  # Smaller batch for 1024px
         adversarial_loss = nn.BCELoss()
         
         training_status["message"] = "Training in progress..."
         
-        # Training loop
-        for epoch in range(start_epoch, start_epoch + 20):  # 20 epochs for demo
+        # Training loop for 1024px (more conservative settings)
+        max_epochs = 15  # Reduced for 1024px training
+        for epoch in range(start_epoch, start_epoch + max_epochs):
             epoch_start = time.time()
             epoch_d_loss = 0
             epoch_g_loss = 0
             
             for batch_idx, real_imgs in enumerate(dataloader):
-                if batch_idx >= 5:  # Limit batches
+                if batch_idx >= 3:  # Fewer batches for 1024px to manage memory
                     break
                     
                 batch_size = real_imgs.size(0)
                 real_imgs = real_imgs.to(device)
+                
+                # Clear cache to manage memory for 1024px
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
                 
                 # Train Discriminator
                 optimizer_D.zero_grad()
@@ -217,8 +251,8 @@ async def run_training():
                 epoch_d_loss += d_loss.item()
                 epoch_g_loss += g_loss.item()
             
-            avg_d_loss = epoch_d_loss / 5
-            avg_g_loss = epoch_g_loss / 5
+            avg_d_loss = epoch_d_loss / 3  # Adjusted for fewer batches
+            avg_g_loss = epoch_g_loss / 3
             
             training_status["current_step"] = epoch + 1
             training_status["message"] = f"Epoch {epoch+1}: D_loss={avg_d_loss:.4f}, G_loss={avg_g_loss:.4f}"
@@ -237,36 +271,48 @@ async def run_training():
                     'timestamp': time.time()
                 }, checkpoint_file)
                 
-                # Generate comprehensive samples for this checkpoint
+                # Generate 1024px samples (memory-optimized)
                 with torch.no_grad():
-                    # 1. Training progress grid (4x4 = 16 samples)
-                    progress_z = torch.randn(16, 128).to(device)
+                    # 1. Training progress grid (2x2 = 4 samples for 1024px)
+                    progress_z = torch.randn(4, 128).to(device)
                     progress_imgs = generator(progress_z)
-                    progress_file = f"/tmp/samples/training_progress/epoch_{epoch+1:05d}_grid.png"
-                    save_image(progress_imgs, progress_file, nrow=4, normalize=True, value_range=(-1, 1))
+                    progress_file = f"/tmp/samples/training_progress/epoch_{epoch+1:05d}_grid_1024px.png"
+                    save_image(progress_imgs, progress_file, nrow=2, normalize=True, value_range=(-1, 1))
                     
-                    # 2. Individual high-quality samples
-                    for i in range(8):
+                    # Clear memory after each generation
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                    
+                    # 2. Individual high-quality 1024px samples (4 instead of 8)
+                    for i in range(4):
                         single_z = torch.randn(1, 128).to(device)
                         single_img = generator(single_z)
-                        single_file = f"/tmp/samples/individual_samples/epoch_{epoch+1:05d}_sample_{i+1:02d}.png"
+                        single_file = f"/tmp/samples/individual_samples/epoch_{epoch+1:05d}_sample_{i+1:02d}_1024px.png"
                         save_image(single_img, single_file, normalize=True, value_range=(-1, 1))
+                        
+                        # Clear memory after each sample
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
                     
-                    # 3. Comparison grid (2x4 = 8 samples for easy comparison)
-                    comparison_z = torch.randn(8, 128).to(device)
+                    # 3. Comparison grid (1x4 = 4 samples for memory efficiency)
+                    comparison_z = torch.randn(4, 128).to(device)
                     comparison_imgs = generator(comparison_z)
-                    comparison_file = f"/tmp/samples/grids/epoch_{epoch+1:05d}_comparison.png"
+                    comparison_file = f"/tmp/samples/grids/epoch_{epoch+1:05d}_comparison_1024px.png"
                     save_image(comparison_imgs, comparison_file, nrow=4, normalize=True, value_range=(-1, 1))
                     
-                    # 4. Fixed seed samples for consistent comparison
+                    # 4. Fixed seed samples for consistent comparison (2 samples)
                     torch.manual_seed(42)  # Fixed seed for consistency
-                    fixed_z = torch.randn(4, 128).to(device)
+                    fixed_z = torch.randn(2, 128).to(device)
                     fixed_imgs = generator(fixed_z)
-                    fixed_file = f"/tmp/samples/training_progress/epoch_{epoch+1:05d}_fixed_seed.png"
+                    fixed_file = f"/tmp/samples/training_progress/epoch_{epoch+1:05d}_fixed_seed_1024px.png"
                     save_image(fixed_imgs, fixed_file, nrow=2, normalize=True, value_range=(-1, 1))
                     torch.manual_seed(int(time.time()))  # Reset to random seed
+                    
+                    # Final memory cleanup
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
                 
-                training_status["message"] = f"Epoch {epoch+1}: Checkpoint saved with {24} samples generated"
+                training_status["message"] = f"Epoch {epoch+1}: Checkpoint saved with 14 samples generated (1024px)"
             
             await asyncio.sleep(0.1)
         
@@ -308,20 +354,22 @@ async def root():
                 <p><strong>Status:</strong> Space is running</p>
                 <p><strong>GPU Available:</strong> {gpu_status}</p>
                 <p><strong>PyTorch Version:</strong> {torch_version}</p>
-                <p><strong>Dataset:</strong> <a href="https://huggingface.co/datasets/lukua/monox-dataset" target="_blank" style="color: #007bff;">lukua/monox-dataset</a> (800+ monotype images)</p>
+                <p><strong>Dataset:</strong> <a href="https://huggingface.co/datasets/lukua/monox-dataset" target="_blank" style="color: #007bff;">lukua/monox-dataset</a> (800+ monotype images at 1024px)</p>
+                <p><strong>Resolution:</strong> 1024×1024 high-resolution training and generation</p>
             </div>
             
             <div class="section">
-                <h4>🚀 Training System</h4>
-                <p>Ready to start fresh training from epoch 0. Current status: {current_training_message}</p>
-                <button onclick="startTraining()">Start Fresh Training</button>
+                <h4>🚀 High-Resolution Training System (1024px)</h4>
+                <p>Ready to start fresh 1024×1024 training from epoch 0. Current status: {current_training_message}</p>
+                <p><em>Memory-optimized for high-resolution generation with reduced batch sizes.</em></p>
+                <button onclick="startTraining()">Start 1024px Training</button>
                 <button onclick="checkTrainingStatus()">Check Training Status</button>
             </div>
             
             <div class="section">
-                <h4>🎨 Art Generation & Samples</h4>
-                <p>Generate samples and browse training progress.</p>
-                <button onclick="generateSample()">Generate Sample</button>
+                <h4>🎨 High-Resolution Art Generation (1024px)</h4>
+                <p>Generate 1024×1024 samples and browse training progress.</p>
+                <button onclick="generateSample()">Generate 1024px Sample</button>
                 <button onclick="listCheckpoints()">List Checkpoints</button>
                 <button onclick="browseSamples()">Browse Samples</button>
                 <button onclick="getSampleSummary()">Sample Summary</button>
