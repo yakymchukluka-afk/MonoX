@@ -282,6 +282,7 @@ async def root():
     """Main page of the MonoX application."""
     gpu_status = "Yes" if torch.cuda.is_available() else "No"
     torch_version = torch.__version__
+    current_training_message = training_status["message"]
     
     return f"""
     <!DOCTYPE html>
@@ -312,7 +313,7 @@ async def root():
             
             <div class="section">
                 <h4>🚀 Training System</h4>
-                <p>Ready to start fresh training from epoch 0. Current status: {training_status["message"]}</p>
+                <p>Ready to start fresh training from epoch 0. Current status: {current_training_message}</p>
                 <button onclick="startTraining()">Start Fresh Training</button>
                 <button onclick="checkTrainingStatus()">Check Training Status</button>
             </div>
