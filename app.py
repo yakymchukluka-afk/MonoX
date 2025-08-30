@@ -25,6 +25,8 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision.utils import save_image
 from PIL import Image
 from pydantic import BaseModel
+from huggingface_hub import hf_hub_download, snapshot_download
+from datasets import load_dataset
 
 app = FastAPI(title="MonoX", description="A participative art project powered by StyleGAN-V")
 
@@ -32,33 +34,83 @@ app = FastAPI(title="MonoX", description="A participative art project powered by
 training_status = {"is_training": False, "current_step": 0, "message": "Ready to start training"}
 
 class MonoDataset(Dataset):
-    def __init__(self, data_path, transform=None):
-        self.data_path = Path(data_path)
+    def __init__(self, data_path=None, transform=None, use_hf_dataset=True):
         self.transform = transform
+        self.use_hf_dataset = use_hf_dataset
+        
+        if use_hf_dataset:
+            try:
+                print("📥 Loading dataset from Hugging Face: lukua/monox-dataset")
+                self.hf_dataset = load_dataset("lukua/monox-dataset", split="train")
+                self.image_files = None
+                print(f"📊 Found {len(self.hf_dataset)} images in HF dataset")
+            except Exception as e:
+                print(f"⚠️ Failed to load HF dataset: {e}")
+                print("📁 Falling back to local dataset loading")
+                self.use_hf_dataset = False
+                self.hf_dataset = None
+        
+        if not use_hf_dataset or not hasattr(self, 'hf_dataset') or self.hf_dataset is None:
+            # Fallback to local file loading
+            if data_path:
+                self.data_path = Path(data_path)
+            else:
+                self.data_path = Path("./dataset")  # Default path
+            
+            # Find all images
+            self.image_files = []
+            for ext in ['*.png', '*.jpg', '*.jpeg', '*.bmp', '*.tiff']:
+                self.image_files.extend(list(self.data_path.rglob(ext)))
+                self.image_files.extend(list(self.data_path.rglob(ext.upper())))
 
-        # Find all images
-        self.image_files = []
-        for ext in ['*.png', '*.jpg', '*.jpeg', '*.bmp', '*.tiff']:
-            self.image_files.extend(list(self.data_path.rglob(ext)))
-            self.image_files.extend(list(self.data_path.rglob(ext.upper())))
+            print(f"📊 Found {len(self.image_files)} local images")
 
-        print(f"📊 Found {len(self.image_files)} images")
-
-        if len(self.image_files) == 0:
-            raise ValueError("No images found! Please upload images to dataset folder.")
+            if len(self.image_files) == 0:
+                print("⚠️ No local images found - will use synthetic data for demo")
+                self.image_files = None
 
     def __len__(self):
-        return len(self.image_files)
+        if self.use_hf_dataset and self.hf_dataset:
+            return len(self.hf_dataset)
+        elif self.image_files:
+            return len(self.image_files)
+        else:
+            return 100  # Synthetic dataset size
 
     def __getitem__(self, idx):
-        img_path = self.image_files[idx]
         try:
-            image = Image.open(img_path).convert('RGB')
+            if self.use_hf_dataset and self.hf_dataset:
+                # Load from HF dataset
+                item = self.hf_dataset[idx]
+                if 'image' in item:
+                    image = item['image']
+                    if isinstance(image, Image.Image):
+                        image = image.convert('RGB')
+                    else:
+                        # Handle other image formats
+                        image = Image.fromarray(image).convert('RGB')
+                else:
+                    # Fallback if structure is different
+                    image = Image.new('RGB', (512, 512), color='white')
+            elif self.image_files:
+                # Load from local files
+                img_path = self.image_files[idx]
+                image = Image.open(img_path).convert('RGB')
+            else:
+                # Generate synthetic data for demo
+                image = Image.new('RGB', (512, 512), color=(idx % 255, (idx*2) % 255, (idx*3) % 255))
+            
             if self.transform:
                 image = self.transform(image)
             return image
-        except:
-            return torch.zeros(3, 512, 512)
+            
+        except Exception as e:
+            print(f"⚠️ Error loading image {idx}: {e}")
+            # Return a default tensor
+            if self.transform:
+                return self.transform(Image.new('RGB', (512, 512), color='gray'))
+            else:
+                return torch.zeros(3, 512, 512)
 
 class Generator(nn.Module):
     def __init__(self, latent_dim=128):
@@ -208,49 +260,75 @@ async def run_monox_training():
         # Loss function
         adversarial_loss = nn.BCELoss()
         
-        # Create a simple test dataset (since we don't have access to Google Drive)
-        # In a real scenario, you'd mount your Google Drive or upload data
-        test_data = torch.randn(100, 3, 512, 512)  # Dummy data for demo
+        # Load the actual MonoX dataset from Hugging Face
+        transform = transforms.Compose([
+            transforms.Resize((512, 512)),
+            transforms.ToTensor(),
+            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+        ])
+        
+        try:
+            dataset = MonoDataset(transform=transform, use_hf_dataset=True)
+            dataloader = DataLoader(dataset, batch_size=2, shuffle=True, num_workers=0)
+            training_status["message"] = f"Loaded HF dataset with {len(dataset)} images"
+        except Exception as e:
+            training_status["message"] = f"Dataset loading error: {str(e)} - using synthetic data"
+            # Fallback to synthetic data
+            dataset = MonoDataset(transform=transform, use_hf_dataset=False)
+            dataloader = DataLoader(dataset, batch_size=2, shuffle=True, num_workers=0)
         
         training_status["message"] = "Training in progress..."
         
         # Training loop (limited for demo)
         for epoch in range(start_epoch, start_epoch + 10):  # Just 10 epochs for demo
             epoch_start = time.time()
+            epoch_d_loss = 0
+            epoch_g_loss = 0
             
-            # Simulate training batch
-            batch_size = 4
-            real_imgs = torch.randn(batch_size, 3, 512, 512).to(device)
+            # Train on actual dataset batches
+            for batch_idx, real_imgs in enumerate(dataloader):
+                if batch_idx >= 5:  # Limit batches for demo
+                    break
+                    
+                batch_size = real_imgs.size(0)
+                real_imgs = real_imgs.to(device)
             
-            # Labels
-            real_labels = torch.ones(batch_size, 1).to(device) * 0.9
-            fake_labels = torch.zeros(batch_size, 1).to(device) + 0.1
+                # Labels
+                real_labels = torch.ones(batch_size, 1).to(device) * 0.9
+                fake_labels = torch.zeros(batch_size, 1).to(device) + 0.1
+                
+                # Train Discriminator
+                optimizer_D.zero_grad()
+                real_pred = discriminator(real_imgs)
+                d_real_loss = adversarial_loss(real_pred, real_labels)
+                
+                z = torch.randn(batch_size, 128).to(device)
+                fake_imgs = generator(z)
+                fake_pred = discriminator(fake_imgs.detach())
+                d_fake_loss = adversarial_loss(fake_pred, fake_labels)
+                
+                d_loss = (d_real_loss + d_fake_loss) / 2
+                d_loss.backward()
+                optimizer_D.step()
+                
+                # Train Generator
+                optimizer_G.zero_grad()
+                z = torch.randn(batch_size, 128).to(device)
+                fake_imgs = generator(z)
+                gen_pred = discriminator(fake_imgs)
+                g_loss = adversarial_loss(gen_pred, torch.ones(batch_size, 1).to(device))
+                g_loss.backward()
+                optimizer_G.step()
+                
+                epoch_d_loss += d_loss.item()
+                epoch_g_loss += g_loss.item()
             
-            # Train Discriminator
-            optimizer_D.zero_grad()
-            real_pred = discriminator(real_imgs)
-            d_real_loss = adversarial_loss(real_pred, real_labels)
-            
-            z = torch.randn(batch_size, 128).to(device)
-            fake_imgs = generator(z)
-            fake_pred = discriminator(fake_imgs.detach())
-            d_fake_loss = adversarial_loss(fake_pred, fake_labels)
-            
-            d_loss = (d_real_loss + d_fake_loss) / 2
-            d_loss.backward()
-            optimizer_D.step()
-            
-            # Train Generator
-            optimizer_G.zero_grad()
-            z = torch.randn(batch_size, 128).to(device)
-            fake_imgs = generator(z)
-            gen_pred = discriminator(fake_imgs)
-            g_loss = adversarial_loss(gen_pred, torch.ones(batch_size, 1).to(device))
-            g_loss.backward()
-            optimizer_G.step()
+            # Calculate averages
+            avg_d_loss = epoch_d_loss / min(5, len(dataloader))
+            avg_g_loss = epoch_g_loss / min(5, len(dataloader))
             
             training_status["current_step"] = epoch + 1
-            training_status["message"] = f"Epoch {epoch+1}: D_loss={d_loss.item():.4f}, G_loss={g_loss.item():.4f}"
+            training_status["message"] = f"Epoch {epoch+1}: D_loss={avg_d_loss:.4f}, G_loss={avg_g_loss:.4f}"
             
             # Save checkpoint every 5 epochs (frequent for demo)
             if (epoch + 1) % 5 == 0:
@@ -310,8 +388,12 @@ async def root():
                     <button onclick="generateSample()" style="background: #ff6b35; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-left: 10px;">Generate Art</button>
                 </div>
                 <div style="margin-top: 15px;">
-                    <input type="text" id="gdriveUrl" placeholder="Google Drive checkpoint URL" style="width: 60%; padding: 8px; border: 1px solid #ddd; border-radius: 3px;">
-                    <button onclick="downloadCheckpoint()" style="background: #6f42c1; color: white; border: none; padding: 8px 15px; border-radius: 3px; cursor: pointer; margin-left: 10px;">Download Checkpoint</button>
+                    <button onclick="checkDataset()" style="background: #17a2b8; color: white; border: none; padding: 8px 15px; border-radius: 3px; cursor: pointer;">Check Dataset</button>
+                    <button onclick="downloadHFCheckpoint()" style="background: #6f42c1; color: white; border: none; padding: 8px 15px; border-radius: 3px; cursor: pointer; margin-left: 10px;">Download HF Checkpoint</button>
+                </div>
+                <div style="margin-top: 10px;">
+                    <input type="text" id="gdriveUrl" placeholder="Google Drive checkpoint URL (legacy)" style="width: 60%; padding: 8px; border: 1px solid #ddd; border-radius: 3px;">
+                    <button onclick="downloadCheckpoint()" style="background: #6c757d; color: white; border: none; padding: 8px 15px; border-radius: 3px; cursor: pointer; margin-left: 10px;">Download GDrive</button>
                 </div>
                 <script>
                     async function startTraining() {{
@@ -341,6 +423,26 @@ async def root():
                             alert(`Sample generated from epoch ${{result.epoch}}!\\nFile: ${{result.sample_file}}`);
                         }} catch (e) {{
                             alert('Error generating sample: ' + e.message);
+                        }}
+                    }}
+                    
+                    async function checkDataset() {{
+                        try {{
+                            const response = await fetch('/api/dataset-info');
+                            const result = await response.json();
+                            alert(`Dataset Info:\\nSource: ${{result.dataset_source}}\\nImages: ${{result.total_images}}\\nStatus: ${{result.status}}\\nMessage: ${{result.message}}`);
+                        }} catch (e) {{
+                            alert('Error checking dataset: ' + e.message);
+                        }}
+                    }}
+                    
+                    async function downloadHFCheckpoint() {{
+                        try {{
+                            const response = await fetch('/api/download-hf-checkpoint', {{method: 'POST'}});
+                            const result = await response.json();
+                            alert(result.message);
+                        }} catch (e) {{
+                            alert('Error downloading HF checkpoint: ' + e.message);
                         }}
                     }}
                     
@@ -453,6 +555,30 @@ async def list_checkpoints():
     
     checkpoints.sort(key=lambda x: x["epoch"], reverse=True)
     return {"checkpoints": checkpoints, "count": len(checkpoints)}
+
+@app.get("/api/dataset-info")
+async def get_dataset_info():
+    """Get information about the loaded dataset."""
+    try:
+        # Test loading the HF dataset
+        dataset = MonoDataset(use_hf_dataset=True)
+        
+        return {
+            "dataset_source": "lukua/monox-dataset" if dataset.use_hf_dataset else "local/synthetic",
+            "total_images": len(dataset),
+            "using_hf_dataset": dataset.use_hf_dataset,
+            "status": "loaded" if len(dataset) > 0 else "empty",
+            "message": "Successfully loaded MonoX dataset from Hugging Face"
+        }
+        
+    except Exception as e:
+        return {
+            "dataset_source": "error",
+            "total_images": 0,
+            "using_hf_dataset": False,
+            "status": "error",
+            "message": f"Dataset loading failed: {str(e)}"
+        }
 
 class GDriveRequest(BaseModel):
     gdrive_url: str

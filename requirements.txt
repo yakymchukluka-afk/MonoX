@@ -4,6 +4,7 @@ uvicorn[standard]>=0.24.0
 pydantic>=2.0.0
 huggingface_hub>=0.20.0
 gdown>=4.7.0
+datasets>=2.0.0
 
 # Core dependencies for MonoX training
 hydra-core==1.0.7
