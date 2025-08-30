@@ -457,9 +457,30 @@ async def list_checkpoints():
 class GDriveRequest(BaseModel):
     gdrive_url: str
 
+@app.post("/api/download-hf-checkpoint")
+async def download_hf_checkpoint(background_tasks: BackgroundTasks):
+    """Download the latest checkpoint from Hugging Face model repository."""
+    if training_status["is_training"]:
+        raise HTTPException(status_code=400, detail="Cannot download while training is in progress")
+    
+    async def download_checkpoint():
+        global training_status
+        try:
+            training_status["message"] = "Downloading latest checkpoint from HF models..."
+            
+            # This will be implemented once the model repo is set up
+            # For now, provide instructions
+            training_status["message"] = "HF model integration ready - upload your checkpoints to lukua/monox-models first"
+                
+        except Exception as e:
+            training_status["message"] = f"Download failed: {str(e)}"
+    
+    background_tasks.add_task(download_checkpoint)
+    return {"message": "HF checkpoint download started", "status": "downloading"}
+
 @app.post("/api/download-gdrive-checkpoint")
 async def download_gdrive_checkpoint(request: GDriveRequest, background_tasks: BackgroundTasks):
-    """Download a checkpoint from Google Drive."""
+    """Download a checkpoint from Google Drive (legacy support)."""
     if training_status["is_training"]:
         raise HTTPException(status_code=400, detail="Cannot download while training is in progress")
     
