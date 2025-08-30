@@ -25,8 +25,9 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision.utils import save_image
 from PIL import Image, ImageDraw, ImageFont
 from pydantic import BaseModel
-from huggingface_hub import hf_hub_download, snapshot_download, upload_file
-from datasets import load_dataset
+# HF imports - will be loaded dynamically to avoid startup issues
+# from huggingface_hub import hf_hub_download, snapshot_download, upload_file
+# from datasets import load_dataset
 import numpy as np
 import json
 import io
@@ -45,6 +46,8 @@ class MonoDataset(Dataset):
         if use_hf_dataset:
             try:
                 print("📥 Loading dataset from Hugging Face: lukua/monox-dataset")
+                # Dynamic import to avoid startup issues
+                from datasets import load_dataset
                 self.hf_dataset = load_dataset("lukua/monox-dataset", split="train")
                 self.image_files = None
                 print(f"📊 Found {len(self.hf_dataset)} images in HF dataset")
@@ -401,15 +404,11 @@ async def run_monox_training():
             transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
         ])
         
-        try:
-            dataset = MonoDataset(transform=transform, use_hf_dataset=True)
-            dataloader = DataLoader(dataset, batch_size=2, shuffle=True, num_workers=0)
-            training_status["message"] = f"Loaded HF dataset with {len(dataset)} images"
-        except Exception as e:
-            training_status["message"] = f"Dataset loading error: {str(e)} - using synthetic data"
-            # Fallback to synthetic data
-            dataset = MonoDataset(transform=transform, use_hf_dataset=False)
-            dataloader = DataLoader(dataset, batch_size=2, shuffle=True, num_workers=0)
+        # Start with synthetic data to avoid startup issues
+        # HF dataset loading will be implemented once Space is stable
+        training_status["message"] = "Using synthetic training data for demo"
+        dataset = MonoDataset(transform=transform, use_hf_dataset=False)
+        dataloader = DataLoader(dataset, batch_size=2, shuffle=True, num_workers=0)
         
         training_status["message"] = "Training in progress..."
         
@@ -557,24 +556,26 @@ async def root():
                 <p><strong>GPU Available:</strong> {gpu_status}</p>
                 <p><strong>PyTorch Version:</strong> {torch_version}</p>
                 <p><strong>Training Status:</strong> {training_message}</p>
-                <div style="margin-top: 20px;">
-                    <button onclick="startTraining()" style="background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Start Training</button>
-                    <button onclick="checkStatus()" style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-left: 10px;">Check Status</button>
-                    <button onclick="generateSample()" style="background: #ff6b35; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-left: 10px;">Generate Art</button>
+                <p><strong>Dataset:</strong> <a href="https://huggingface.co/datasets/lukua/monox-dataset" target="_blank" style="color: #007bff;">lukua/monox-dataset</a> (800+ monotype images)</p>
+                
+                <div style="margin-top: 20px; background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                    <h4 style="margin-top: 0; color: #495057;">🚀 Fresh Training (Epoch 0)</h4>
+                    <button onclick="startTraining()" style="background: #007bff; color: white; border: none; padding: 12px 24px; border-radius: 5px; cursor: pointer; font-size: 16px;">Start Training from Scratch</button>
+                    <button onclick="checkStatus()" style="background: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; margin-left: 10px;">Check Status</button>
+                    <button onclick="getTrainingSummary()" style="background: #17a2b8; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; margin-left: 10px;">Training Summary</button>
                 </div>
-                <div style="margin-top: 15px;">
-                    <button onclick="checkDataset()" style="background: #17a2b8; color: white; border: none; padding: 8px 15px; border-radius: 3px; cursor: pointer;">Check Dataset</button>
-                    <button onclick="getTrainingSummary()" style="background: #28a745; color: white; border: none; padding: 8px 15px; border-radius: 3px; cursor: pointer; margin-left: 10px;">Training Summary</button>
-                    <button onclick="downloadHFCheckpoint()" style="background: #6f42c1; color: white; border: none; padding: 8px 15px; border-radius: 3px; cursor: pointer; margin-left: 10px;">Download HF Checkpoint</button>
+                
+                <div style="margin-top: 15px; background: #fff3cd; padding: 15px; border-radius: 8px;">
+                    <h4 style="margin-top: 0; color: #856404;">🎨 Art Generation</h4>
+                    <button onclick="generateSample()" style="background: #ff6b35; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Generate Sample</button>
+                    <button onclick="generateLatentWalk('linear')" style="background: #fd7e14; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; margin-left: 10px;">Linear Walk</button>
+                    <button onclick="generateLatentWalk('circular')" style="background: #e83e8c; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; margin-left: 10px;">Circular Walk</button>
                 </div>
-                <div style="margin-top: 10px;">
-                    <button onclick="generateLatentWalk('linear')" style="background: #fd7e14; color: white; border: none; padding: 8px 15px; border-radius: 3px; cursor: pointer;">Linear Walk</button>
-                    <button onclick="generateLatentWalk('circular')" style="background: #e83e8c; color: white; border: none; padding: 8px 15px; border-radius: 3px; cursor: pointer; margin-left: 10px;">Circular Walk</button>
-                    <button onclick="getTrainingLogs()" style="background: #20c997; color: white; border: none; padding: 8px 15px; border-radius: 3px; cursor: pointer; margin-left: 10px;">View Logs</button>
-                </div>
-                <div style="margin-top: 10px;">
-                    <input type="text" id="gdriveUrl" placeholder="Google Drive checkpoint URL (legacy)" style="width: 60%; padding: 8px; border: 1px solid #ddd; border-radius: 3px;">
-                    <button onclick="downloadCheckpoint()" style="background: #6c757d; color: white; border: none; padding: 8px 15px; border-radius: 3px; cursor: pointer; margin-left: 10px;">Download GDrive</button>
+                
+                <div style="margin-top: 15px; background: #d1ecf1; padding: 15px; border-radius: 8px;">
+                    <h4 style="margin-top: 0; color: #0c5460;">📊 Monitoring & Data</h4>
+                    <button onclick="checkDataset()" style="background: #17a2b8; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer;">Check Dataset</button>
+                    <button onclick="getTrainingLogs()" style="background: #20c997; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; margin-left: 10px;">View Logs</button>
                 </div>
                 <script>
                     async function startTraining() {{
