@@ -1,3 +1,13 @@
+---
+title: MonoX
+emoji: 🎨
+colorFrom: blue
+colorTo: purple
+sdk: docker
+pinned: false
+license: mit
+---
+
 # MonoX
 
 A participative art project powered by StyleGAN-V for generating dynamic visual content.
@@ -135,3 +145,4 @@ The project uses:
 - **OmegaConf** for flexible config overrides
 
 See `configs/config.yaml` for the full configuration schema.
+# Build trigger - Sat Aug 30 12:30:16 PM UTC 2025

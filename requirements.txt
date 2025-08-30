@@ -1,26 +1,7 @@
-# Core dependencies for MonoX training in Colab
-# Note: Use pip<24.1 if you get metadata validation errors
-hydra-core==1.0.7
-omegaconf==2.0.4
+# Core dependencies for MonoX training
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
 torch>=1.9.0
 torchvision>=0.10.0
 numpy>=1.21.0
 pillow>=8.0.0
-scipy>=1.7.0
-tqdm>=4.62.0
-tensorboard>=2.7.0
-matplotlib>=3.4.0
-opencv-python>=4.5.0
-imageio>=2.9.0
-imageio-ffmpeg>=0.4.5
-
-# StyleGAN-V specific dependencies
-ninja>=1.10.0
-psutil>=5.8.0
-
-# Use compatible pytorch-lightning version
-pytorch-lightning>=1.5.0,<1.8.0
-
-# Additional ML dependencies
-scikit-learn>=1.0.0
-pandas>=1.3.0

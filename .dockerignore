@@ -1,0 +1,55 @@
+# Training scripts and diagnostics (not needed for web interface)
+*train*.py
+*victory*.py
+*nuclear*.py
+*ultimate*.py
+*perfect*.py
+*absolute*.py
+*emergency*.py
+*final*.py
+*colab*.py
+*gpu*.py
+*diagnostic*.py
+*monitor*.py
+check_*.py
+detect_*.py
+direct_*.py
+fix_*.py
+force_*.py
+fresh_*.py
+launch_*.py
+patch_*.py
+quick_*.py
+real_time_*.py
+setup_*.py
+test_*.py
+update_*.py
+wait_*.py
+
+# Documentation files (keep only essential ones)
+COLAB_*.md
+HYDRA_*.md
+TRAINING_*.md
+
+# Config files (keep for reference but not needed in container)
+configs/
+
+# Git and development files
+.git/
+.gitmodules
+*.pyc
+__pycache__/
+.pytest_cache/
+.coverage
+.env
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
