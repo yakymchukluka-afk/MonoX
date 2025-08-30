@@ -23,10 +23,14 @@ import torch.optim as optim
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader, Dataset
 from torchvision.utils import save_image
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 from pydantic import BaseModel
-from huggingface_hub import hf_hub_download, snapshot_download
+from huggingface_hub import hf_hub_download, snapshot_download, upload_file
 from datasets import load_dataset
+import numpy as np
+import json
+import io
+import base64
 
 app = FastAPI(title="MonoX", description="A participative art project powered by StyleGAN-V")
 
@@ -175,6 +179,136 @@ def adjust_learning_rate(epoch):
     else:
         return 0.00001
 
+def generate_latent_walk(generator, z1, z2, steps=60, device='cpu'):
+    """Generate a latent walk between two points."""
+    generator.eval()
+    with torch.no_grad():
+        # Linear interpolation between z1 and z2
+        alphas = torch.linspace(0, 1, steps).to(device)
+        walk_images = []
+        
+        for alpha in alphas:
+            z_interp = (1 - alpha) * z1 + alpha * z2
+            generated_img = generator(z_interp)
+            walk_images.append(generated_img)
+        
+        return torch.cat(walk_images, dim=0)
+
+def generate_circular_walk(generator, center, radius=1.0, steps=60, device='cpu'):
+    """Generate a circular walk around a center point in latent space."""
+    generator.eval()
+    with torch.no_grad():
+        angles = torch.linspace(0, 2 * np.pi, steps).to(device)
+        walk_images = []
+        
+        # Generate random orthogonal directions
+        dir1 = torch.randn_like(center)
+        dir2 = torch.randn_like(center)
+        # Gram-Schmidt orthogonalization
+        dir2 = dir2 - torch.dot(dir1.flatten(), dir2.flatten()) / torch.dot(dir1.flatten(), dir1.flatten()) * dir1
+        
+        # Normalize directions
+        dir1 = dir1 / torch.norm(dir1)
+        dir2 = dir2 / torch.norm(dir2)
+        
+        for angle in angles:
+            z_walk = center + radius * (torch.cos(angle) * dir1 + torch.sin(angle) * dir2)
+            generated_img = generator(z_walk)
+            walk_images.append(generated_img)
+        
+        return torch.cat(walk_images, dim=0)
+
+def save_training_log(epoch, g_loss, d_loss, lr, duration, checkpoint_dir="/tmp/training_logs"):
+    """Save training progress to log file."""
+    os.makedirs(checkpoint_dir, exist_ok=True)
+    log_file = os.path.join(checkpoint_dir, "training_log.txt")
+    
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    log_entry = f"[{timestamp}] Epoch {epoch:05d} | G_loss: {g_loss:.6f} | D_loss: {d_loss:.6f} | LR: {lr:.6f} | Duration: {duration:.2f}s\n"
+    
+    with open(log_file, "a") as f:
+        f.write(log_entry)
+    
+    # Also save as JSON for easier parsing
+    json_file = os.path.join(checkpoint_dir, "loss_history.json")
+    log_data = {
+        "epoch": epoch,
+        "timestamp": timestamp,
+        "generator_loss": g_loss,
+        "discriminator_loss": d_loss,
+        "learning_rate": lr,
+        "duration": duration
+    }
+    
+    # Append to JSON array
+    if os.path.exists(json_file):
+        with open(json_file, "r") as f:
+            history = json.load(f)
+    else:
+        history = []
+    
+    history.append(log_data)
+    
+    with open(json_file, "w") as f:
+        json.dump(history, f, indent=2)
+
+def create_training_summary_image(epoch, g_loss, d_loss, samples, save_path):
+    """Create a summary image with training info and samples."""
+    # Create a canvas
+    canvas_width = 1024
+    canvas_height = 768
+    canvas = Image.new('RGB', (canvas_width, canvas_height), color='white')
+    draw = ImageDraw.Draw(canvas)
+    
+    # Try to use a default font, fallback to built-in if not available
+    try:
+        font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 36)
+        font_medium = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 24)
+    except:
+        font_large = ImageFont.load_default()
+        font_medium = ImageFont.load_default()
+    
+    # Add title
+    draw.text((50, 30), f"MonoX Training - Epoch {epoch}", fill='black', font=font_large)
+    
+    # Add training metrics
+    draw.text((50, 100), f"Generator Loss: {g_loss:.6f}", fill='blue', font=font_medium)
+    draw.text((50, 140), f"Discriminator Loss: {d_loss:.6f}", fill='red', font=font_medium)
+    draw.text((50, 180), f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}", fill='gray', font=font_medium)
+    
+    # Add sample images if provided
+    if samples is not None and len(samples) > 0:
+        sample_size = 200
+        samples_per_row = 4
+        start_y = 250
+        
+        for i, sample in enumerate(samples[:8]):  # Max 8 samples
+            if i >= 8:
+                break
+                
+            row = i // samples_per_row
+            col = i % samples_per_row
+            x = 50 + col * (sample_size + 10)
+            y = start_y + row * (sample_size + 10)
+            
+            # Convert tensor to PIL Image
+            if isinstance(sample, torch.Tensor):
+                sample_np = sample.detach().cpu().numpy()
+                if sample_np.shape[0] == 3:  # CHW format
+                    sample_np = np.transpose(sample_np, (1, 2, 0))
+                sample_np = (sample_np * 0.5 + 0.5) * 255  # Denormalize
+                sample_np = np.clip(sample_np, 0, 255).astype(np.uint8)
+                sample_img = Image.fromarray(sample_np)
+            else:
+                sample_img = sample
+            
+            # Resize and paste
+            sample_img = sample_img.resize((sample_size, sample_size))
+            canvas.paste(sample_img, (x, y))
+    
+    canvas.save(save_path)
+    return save_path
+
 def find_latest_checkpoint(checkpoint_dir: str = "checkpoints") -> Optional[str]:
     """Find the most recent checkpoint file."""
     if not os.path.isdir(checkpoint_dir):
@@ -279,21 +413,23 @@ async def run_monox_training():
         
         training_status["message"] = "Training in progress..."
         
-        # Training loop (limited for demo)
-        for epoch in range(start_epoch, start_epoch + 10):  # Just 10 epochs for demo
+        # Enhanced training loop with comprehensive logging
+        max_epochs = 50  # Increased for more substantial training
+        for epoch in range(start_epoch, start_epoch + max_epochs):
             epoch_start = time.time()
             epoch_d_loss = 0
             epoch_g_loss = 0
+            batches_processed = 0
             
             # Train on actual dataset batches
             for batch_idx, real_imgs in enumerate(dataloader):
-                if batch_idx >= 5:  # Limit batches for demo
+                if batch_idx >= 10:  # Process more batches for better training
                     break
                     
                 batch_size = real_imgs.size(0)
                 real_imgs = real_imgs.to(device)
             
-                # Labels
+                # Labels with label smoothing
                 real_labels = torch.ones(batch_size, 1).to(device) * 0.9
                 fake_labels = torch.zeros(batch_size, 1).to(device) + 0.1
                 
@@ -311,27 +447,35 @@ async def run_monox_training():
                 d_loss.backward()
                 optimizer_D.step()
                 
-                # Train Generator
-                optimizer_G.zero_grad()
-                z = torch.randn(batch_size, 128).to(device)
-                fake_imgs = generator(z)
-                gen_pred = discriminator(fake_imgs)
-                g_loss = adversarial_loss(gen_pred, torch.ones(batch_size, 1).to(device))
-                g_loss.backward()
-                optimizer_G.step()
+                # Train Generator (train 2x more often for better balance)
+                for _ in range(2):
+                    optimizer_G.zero_grad()
+                    z = torch.randn(batch_size, 128).to(device)
+                    fake_imgs = generator(z)
+                    gen_pred = discriminator(fake_imgs)
+                    g_loss = adversarial_loss(gen_pred, torch.ones(batch_size, 1).to(device))
+                    g_loss.backward()
+                    optimizer_G.step()
                 
                 epoch_d_loss += d_loss.item()
                 epoch_g_loss += g_loss.item()
+                batches_processed += 1
             
-            # Calculate averages
-            avg_d_loss = epoch_d_loss / min(5, len(dataloader))
-            avg_g_loss = epoch_g_loss / min(5, len(dataloader))
+            # Calculate averages and training duration
+            avg_d_loss = epoch_d_loss / max(batches_processed, 1)
+            avg_g_loss = epoch_g_loss / max(batches_processed, 1)
+            epoch_duration = time.time() - epoch_start
+            current_lr = adjust_learning_rate(epoch)
             
+            # Update training status
             training_status["current_step"] = epoch + 1
-            training_status["message"] = f"Epoch {epoch+1}: D_loss={avg_d_loss:.4f}, G_loss={avg_g_loss:.4f}"
+            training_status["message"] = f"Epoch {epoch+1}: D_loss={avg_d_loss:.4f}, G_loss={avg_g_loss:.4f}, LR={current_lr:.6f}"
             
-            # Save checkpoint every 5 epochs (frequent for demo)
-            if (epoch + 1) % 5 == 0:
+            # Save comprehensive training log
+            save_training_log(epoch + 1, avg_g_loss, avg_d_loss, current_lr, epoch_duration)
+            
+            # Save checkpoint and generate samples every 10 epochs
+            if (epoch + 1) % 10 == 0:
                 checkpoint_file = f'{checkpoint_dir}/monox_generator_{epoch+1:05d}.pth'
                 torch.save({
                     'epoch': epoch,
@@ -339,14 +483,45 @@ async def run_monox_training():
                     'discriminator_state_dict': discriminator.state_dict(),
                     'optimizer_G_state_dict': optimizer_G.state_dict(),
                     'optimizer_D_state_dict': optimizer_D.state_dict(),
+                    'generator_loss': avg_g_loss,
+                    'discriminator_loss': avg_d_loss,
+                    'learning_rate': current_lr
                 }, checkpoint_file)
                 
-                # Generate sample
+                # Generate diverse samples
                 with torch.no_grad():
-                    sample_z = torch.randn(4, 128).to(device)
+                    sample_z = torch.randn(8, 128).to(device)
                     sample_imgs = generator(sample_z)
                     sample_file = f'{samples_dir}/monox_epoch_{epoch+1:05d}.png'
-                    save_image(sample_imgs, sample_file, nrow=2, normalize=True, value_range=(-1, 1))
+                    save_image(sample_imgs, sample_file, nrow=4, normalize=True, value_range=(-1, 1))
+                    
+                    # Create training summary image
+                    summary_file = f'{samples_dir}/summary_epoch_{epoch+1:05d}.png'
+                    create_training_summary_image(epoch + 1, avg_g_loss, avg_d_loss, sample_imgs, summary_file)
+            
+            # Generate latent walk every 25 epochs
+            if (epoch + 1) % 25 == 0:
+                with torch.no_grad():
+                    # Linear interpolation walk
+                    z1 = torch.randn(1, 128).to(device)
+                    z2 = torch.randn(1, 128).to(device)
+                    walk_imgs = generate_latent_walk(generator, z1, z2, steps=30, device=device)
+                    walk_file = f'{samples_dir}/walk_linear_epoch_{epoch+1:05d}.png'
+                    save_image(walk_imgs, walk_file, nrow=6, normalize=True, value_range=(-1, 1))
+                    
+                    # Circular walk
+                    center = torch.randn(1, 128).to(device)
+                    circular_imgs = generate_circular_walk(generator, center, radius=0.5, steps=24, device=device)
+                    circular_file = f'{samples_dir}/walk_circular_epoch_{epoch+1:05d}.png'
+                    save_image(circular_imgs, circular_file, nrow=6, normalize=True, value_range=(-1, 1))
+            
+            # Adjust learning rates dynamically
+            new_lr = adjust_learning_rate(epoch)
+            if new_lr != current_lr:
+                for param_group in optimizer_G.param_groups:
+                    param_group['lr'] = new_lr
+                for param_group in optimizer_D.param_groups:
+                    param_group['lr'] = new_lr
             
             await asyncio.sleep(0.1)  # Yield control
         
@@ -389,7 +564,13 @@ async def root():
                 </div>
                 <div style="margin-top: 15px;">
                     <button onclick="checkDataset()" style="background: #17a2b8; color: white; border: none; padding: 8px 15px; border-radius: 3px; cursor: pointer;">Check Dataset</button>
+                    <button onclick="getTrainingSummary()" style="background: #28a745; color: white; border: none; padding: 8px 15px; border-radius: 3px; cursor: pointer; margin-left: 10px;">Training Summary</button>
                     <button onclick="downloadHFCheckpoint()" style="background: #6f42c1; color: white; border: none; padding: 8px 15px; border-radius: 3px; cursor: pointer; margin-left: 10px;">Download HF Checkpoint</button>
+                </div>
+                <div style="margin-top: 10px;">
+                    <button onclick="generateLatentWalk('linear')" style="background: #fd7e14; color: white; border: none; padding: 8px 15px; border-radius: 3px; cursor: pointer;">Linear Walk</button>
+                    <button onclick="generateLatentWalk('circular')" style="background: #e83e8c; color: white; border: none; padding: 8px 15px; border-radius: 3px; cursor: pointer; margin-left: 10px;">Circular Walk</button>
+                    <button onclick="getTrainingLogs()" style="background: #20c997; color: white; border: none; padding: 8px 15px; border-radius: 3px; cursor: pointer; margin-left: 10px;">View Logs</button>
                 </div>
                 <div style="margin-top: 10px;">
                     <input type="text" id="gdriveUrl" placeholder="Google Drive checkpoint URL (legacy)" style="width: 60%; padding: 8px; border: 1px solid #ddd; border-radius: 3px;">
@@ -443,6 +624,53 @@ async def root():
                             alert(result.message);
                         }} catch (e) {{
                             alert('Error downloading HF checkpoint: ' + e.message);
+                        }}
+                    }}
+                    
+                    async function generateLatentWalk(walkType) {{
+                        try {{
+                            const response = await fetch(`/api/generate-latent-walk?walk_type=${{walkType}}&steps=30`);
+                            const result = await response.json();
+                            alert(`${{result.message}}\\nFile: ${{result.walk_file}}`);
+                        }} catch (e) {{
+                            alert('Error generating latent walk: ' + e.message);
+                        }}
+                    }}
+                    
+                    async function getTrainingLogs() {{
+                        try {{
+                            const response = await fetch('/api/training-logs?limit=10');
+                            const result = await response.json();
+                            if (result.logs.length > 0) {{
+                                let logText = `Training Logs (Last 10 epochs):\\n\\n`;
+                                result.logs.forEach(log => {{
+                                    logText += `Epoch ${{log.epoch}}: G_loss=${{log.generator_loss.toFixed(4)}}, D_loss=${{log.discriminator_loss.toFixed(4)}}\\n`;
+                                }});
+                                alert(logText);
+                            }} else {{
+                                alert('No training logs found. Start training first.');
+                            }}
+                        }} catch (e) {{
+                            alert('Error getting training logs: ' + e.message);
+                        }}
+                    }}
+                    
+                    async function getTrainingSummary() {{
+                        try {{
+                            const response = await fetch('/api/training-summary');
+                            const result = await response.json();
+                            let summary = `MonoX Training Summary:\\n\\n`;
+                            summary += `Dataset: ${{result.dataset.total_images}} images from ${{result.dataset.source}}\\n`;
+                            summary += `Latest Checkpoint: Epoch ${{result.latest_checkpoint.epoch || 'None'}}\\n`;
+                            summary += `Training Status: ${{result.training_status.message}}\\n`;
+                            summary += `Generated Content:\\n`;
+                            summary += `  - Checkpoints: ${{result.generated_content.checkpoints}}\\n`;
+                            summary += `  - Samples: ${{result.generated_content.samples}}\\n`;
+                            summary += `  - Latent Walks: ${{result.generated_content.latent_walks}}\\n`;
+                            summary += `Device: ${{result.device}}`;
+                            alert(summary);
+                        }} catch (e) {{
+                            alert('Error getting training summary: ' + e.message);
                         }}
                     }}
                     
@@ -695,6 +923,139 @@ async def generate_sample():
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")
+
+@app.get("/api/generate-latent-walk")
+async def generate_latent_walk_api(walk_type: str = "linear", steps: int = 30):
+    """Generate a latent walk visualization."""
+    try:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        
+        # Find latest checkpoint
+        latest_checkpoint, latest_epoch = find_latest_monox_checkpoint()
+        if not latest_checkpoint:
+            raise HTTPException(status_code=404, detail="No checkpoint found. Train the model first.")
+        
+        # Load generator
+        generator = Generator().to(device)
+        checkpoint = torch.load(latest_checkpoint, map_location=device)
+        generator.load_state_dict(checkpoint['generator_state_dict'])
+        
+        # Generate walk based on type
+        with torch.no_grad():
+            if walk_type == "linear":
+                z1 = torch.randn(1, 128).to(device)
+                z2 = torch.randn(1, 128).to(device)
+                walk_imgs = generate_latent_walk(generator, z1, z2, steps=steps, device=device)
+            elif walk_type == "circular":
+                center = torch.randn(1, 128).to(device)
+                walk_imgs = generate_circular_walk(generator, center, radius=0.8, steps=steps, device=device)
+            else:
+                raise ValueError("walk_type must be 'linear' or 'circular'")
+            
+            # Save walk
+            walks_dir = "/tmp/latent_walks"
+            os.makedirs(walks_dir, exist_ok=True)
+            walk_file = f"{walks_dir}/walk_{walk_type}_{int(time.time())}.png"
+            save_image(walk_imgs, walk_file, nrow=min(steps//4, 8), normalize=True, value_range=(-1, 1))
+        
+        return {
+            "message": f"Generated {walk_type} latent walk with {steps} steps",
+            "walk_type": walk_type,
+            "steps": steps,
+            "epoch": latest_epoch,
+            "walk_file": os.path.basename(walk_file),
+            "status": "success"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Latent walk generation failed: {str(e)}")
+
+@app.get("/api/training-logs")
+async def get_training_logs(limit: int = 50):
+    """Get recent training logs."""
+    try:
+        log_file = "/tmp/training_logs/loss_history.json"
+        if not os.path.exists(log_file):
+            return {"logs": [], "count": 0, "message": "No training logs found"}
+        
+        with open(log_file, "r") as f:
+            all_logs = json.load(f)
+        
+        # Get recent logs
+        recent_logs = all_logs[-limit:] if len(all_logs) > limit else all_logs
+        
+        return {
+            "logs": recent_logs,
+            "count": len(recent_logs),
+            "total_epochs": len(all_logs),
+            "latest_epoch": all_logs[-1]["epoch"] if all_logs else 0
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get training logs: {str(e)}")
+
+@app.get("/api/training-summary")
+async def get_training_summary():
+    """Get comprehensive training summary."""
+    try:
+        # Get latest checkpoint info
+        latest_checkpoint, latest_epoch = find_latest_monox_checkpoint()
+        
+        # Get dataset info
+        try:
+            dataset = MonoDataset(use_hf_dataset=True)
+            dataset_info = {
+                "source": "lukua/monox-dataset" if dataset.use_hf_dataset else "local/synthetic",
+                "total_images": len(dataset),
+                "status": "loaded"
+            }
+        except:
+            dataset_info = {"source": "error", "total_images": 0, "status": "error"}
+        
+        # Get training logs summary
+        try:
+            log_file = "/tmp/training_logs/loss_history.json"
+            if os.path.exists(log_file):
+                with open(log_file, "r") as f:
+                    logs = json.load(f)
+                latest_log = logs[-1] if logs else None
+            else:
+                logs = []
+                latest_log = None
+        except:
+            logs = []
+            latest_log = None
+        
+        # Count generated files
+        checkpoints_count = len(list(Path("/tmp/checkpoints").glob("*.pth"))) if Path("/tmp/checkpoints").exists() else 0
+        samples_count = len(list(Path("/tmp/samples").glob("*.png"))) if Path("/tmp/samples").exists() else 0
+        walks_count = len(list(Path("/tmp/latent_walks").glob("*.png"))) if Path("/tmp/latent_walks").exists() else 0
+        
+        return {
+            "training_status": training_status,
+            "latest_checkpoint": {
+                "epoch": latest_epoch,
+                "filename": os.path.basename(latest_checkpoint) if latest_checkpoint else None
+            },
+            "dataset": dataset_info,
+            "training_progress": {
+                "total_epochs_logged": len(logs),
+                "latest_losses": {
+                    "generator": latest_log["generator_loss"] if latest_log else None,
+                    "discriminator": latest_log["discriminator_loss"] if latest_log else None,
+                    "learning_rate": latest_log["learning_rate"] if latest_log else None
+                } if latest_log else None
+            },
+            "generated_content": {
+                "checkpoints": checkpoints_count,
+                "samples": samples_count,
+                "latent_walks": walks_count
+            },
+            "device": "GPU" if torch.cuda.is_available() else "CPU"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get training summary: {str(e)}")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 7860))
