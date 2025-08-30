@@ -1,3 +1,13 @@
+---
+title: MonoX
+emoji: 🎨
+colorFrom: blue
+colorTo: purple
+sdk: docker
+pinned: false
+license: mit
+---
+
 # MonoX
 
 A participative art project powered by StyleGAN-V for generating dynamic visual content.

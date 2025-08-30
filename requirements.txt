@@ -1,5 +1,8 @@
-# Core dependencies for MonoX training in Colab
-# Note: Use pip<24.1 if you get metadata validation errors
+# FastAPI and web server dependencies
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# Core dependencies for MonoX training
 hydra-core==1.0.7
 omegaconf==2.0.4
 torch>=1.9.0
