@@ -1,3 +1,7 @@
-# Minimal dependencies for stable startup
+# Core dependencies for MonoX training
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
+torch>=1.9.0
+torchvision>=0.10.0
+numpy>=1.21.0
+pillow>=8.0.0
