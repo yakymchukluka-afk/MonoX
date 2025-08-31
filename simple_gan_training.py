@@ -19,6 +19,7 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader, Dataset
 from PIL import Image
 import numpy as np
+from datasets import load_dataset
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -49,6 +50,26 @@ class ImageDataset(Dataset):
         img_path = self.image_files[idx]
         image = Image.open(img_path).convert('RGB')
         return self.transform(image)
+
+class HFMonoxDataset(Dataset):
+    """HF dataset wrapper for lukua/monox-dataset."""
+    def __init__(self, split: str = "train", image_size: int = 512):
+        self.ds = load_dataset("lukua/monox-dataset", split=split)
+        self.transform = transforms.Compose([
+            transforms.Resize((image_size, image_size)),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        ])
+
+    def __len__(self):
+        return len(self.ds)
+
+    def __getitem__(self, idx):
+        sample = self.ds[idx]
+        img = sample.get("image", sample)
+        if not isinstance(img, Image.Image):
+            img = Image.fromarray(np.array(img))
+        return self.transform(img)
 
 class Generator(nn.Module):
     """Simple Generator network."""
@@ -187,8 +208,14 @@ def train_simple_gan():
     lr = 0.0002
     epochs = 50  # 50 epochs for good results
     
-    # Create dataset
-    dataset = ImageDataset("/workspace/dataset", image_size=img_size)
+    # Create dataset (HF dataset for CPU or GPU)
+    try:
+        dataset = HFMonoxDataset(image_size=img_size)
+        logger.info(f"✅ Loaded HF dataset: lukua/monox-dataset ({len(dataset)} images)")
+    except Exception as e:
+        logger.error(f"⚠️  Failed to load HF dataset: {e}")
+        logger.info("   Falling back to local /workspace/dataset if available...")
+        dataset = ImageDataset("/workspace/dataset", image_size=img_size)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)  # No multiprocessing to avoid shared memory issues
     
     # Create models
@@ -266,7 +293,7 @@ def train_simple_gan():
                 'd_loss': d_loss.item()
             }
             
-            ckpt_path = checkpoints_dir / f"monox_checkpoint_epoch_{epoch+1:04d}.pt"
+            ckpt_path = checkpoints_dir / f"monox_checkpoint_epoch_{epoch+1:04d}.pth"
             torch.save(checkpoint, ckpt_path)
             logger.info(f"💾 Saved checkpoint: {ckpt_path.name}")
             
@@ -281,7 +308,7 @@ def train_simple_gan():
         logger.info(f"✅ Epoch {epoch+1} completed in {epoch_time:.2f}s")
     
     # Save final model
-    final_model_path = checkpoints_dir / "monox_final_model.pt"
+    final_model_path = checkpoints_dir / "monox_final_model.pth"
     torch.save({
         'generator': generator.state_dict(),
         'discriminator': discriminator.state_dict(),
