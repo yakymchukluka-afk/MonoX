@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """
-MonoX Training Interface - Minimal Version
-Designed to work even with HF Spaces infrastructure issues
+MonoX Training Interface - FastAPI Backend
+Designed for HF Spaces with Docker deployment
 """
 
-import gradio as gr
+from fastapi import FastAPI
 import os
 import subprocess
 import time
 from pathlib import Path
+import torch
+
+app = FastAPI(title="MonoX Backend", description="StyleGAN-V based generative art platform")
 
 def setup_environment():
     """Minimal environment setup."""
@@ -38,151 +41,80 @@ def get_progress_info():
     previews = len(list(preview_dir.glob("*.png"))) if preview_dir.exists() else 0
     checkpoints = len(list(checkpoint_dir.glob("*.pth"))) if checkpoint_dir.exists() else 0
     
-    return f"""
-📊 **MonoX Training Progress**
+    return {
+        "status": check_training_status(),
+        "previews": previews,
+        "checkpoints": checkpoints,
+        "progress_percent": previews * 2,
+        "hardware_info": {
+            "cuda_available": torch.cuda.is_available(),
+            "device_count": torch.cuda.device_count() if torch.cuda.is_available() else 0
+        }
+    }
 
-**Status**: {check_training_status()}
-**Previews**: {previews} samples generated
-**Checkpoints**: {checkpoints} saved
-**Progress**: {previews}/50 epochs ({previews*2}%)
+@app.get("/")
+def greet():
+    """Root endpoint - confirms MonoX backend is active."""
+    return {"status": "MonoX backend active"}
 
-**Hardware Options**:
-- CPU: ~15 min/epoch (current)
-- GPU T4: ~30 sec/epoch (30x faster!)
-- GPU A10G: ~15 sec/epoch (60x faster!)
+@app.get("/health")
+def health_check():
+    """Health check endpoint."""
+    setup_result = setup_environment()
+    return {
+        "status": "healthy",
+        "setup": setup_result,
+        "cuda_available": torch.cuda.is_available(),
+        "device_count": torch.cuda.device_count() if torch.cuda.is_available() else 0
+    }
 
-**Cost for GPU T4**: Only $0.25 for complete training!
-**Time savings**: 12+ hours → 25 minutes
-    """
+@app.get("/training/status")
+def training_status():
+    """Get training status and progress."""
+    return get_progress_info()
 
+@app.post("/training/start/cpu")
 def start_cpu_training():
     """Start CPU training."""
     try:
         subprocess.Popen(['python3', 'simple_gan_training.py'])
-        return "🚀 CPU training started! Check back in 15 minutes for next sample."
+        return {"status": "success", "message": "🚀 CPU training started! Check back in 15 minutes for next sample."}
     except Exception as e:
-        return f"❌ Failed to start training: {e}"
+        return {"status": "error", "message": f"❌ Failed to start training: {e}"}
 
+@app.post("/training/start/gpu")
 def start_gpu_training():
     """Start GPU training if available."""
     try:
-        import torch
         if torch.cuda.is_available():
             subprocess.Popen(['python3', 'gpu_gan_training.py'])
-            return "🚀 GPU training started! Much faster - check back in 30 seconds!"
+            return {"status": "success", "message": "🚀 GPU training started! Much faster - check back in 30 seconds!"}
         else:
-            return "⚠️ No GPU detected. Upgrade hardware in Space settings first."
+            return {"status": "warning", "message": "⚠️ No GPU detected. Upgrade hardware in Space settings first."}
     except Exception as e:
-        return f"❌ Failed to start GPU training: {e}"
+        return {"status": "error", "message": f"❌ Failed to start GPU training: {e}"}
 
+@app.get("/samples/latest")
 def get_latest_sample():
     """Get the latest generated sample."""
     preview_dir = Path("previews")
     if not preview_dir.exists():
-        return None, "No samples generated yet"
+        return {"status": "no_samples", "message": "No samples generated yet"}
     
     samples = sorted(preview_dir.glob("samples_epoch_*.png"), key=lambda x: x.stat().st_mtime)
     if not samples:
-        return None, "No samples found"
+        return {"status": "no_samples", "message": "No samples found"}
     
     latest = samples[-1]
     epoch_num = int(latest.stem.split('_')[-1])
     size_mb = latest.stat().st_size / (1024*1024)
     
-    return str(latest), f"Epoch {epoch_num} - {size_mb:.1f}MB"
+    return {
+        "status": "success",
+        "file_path": str(latest),
+        "epoch": epoch_num,
+        "size_mb": round(size_mb, 1)
+    }
 
-# Create Gradio interface
-def create_interface():
-    """Create the Gradio interface."""
-    
-    with gr.Blocks(title="MonoX Training", theme=gr.themes.Soft()) as interface:
-        gr.Markdown("# 🎨 MonoX StyleGAN-V Training")
-        gr.Markdown("*Generate monotype-inspired artwork using AI*")
-        
-        with gr.Row():
-            with gr.Column():
-                gr.Markdown("## 📊 Status & Control")
-                
-                status_output = gr.Textbox(
-                    label="Training Status",
-                    value=check_training_status(),
-                    interactive=False
-                )
-                
-                progress_output = gr.Markdown(
-                    value=get_progress_info()
-                )
-                
-                with gr.Row():
-                    cpu_btn = gr.Button("🖥️ Start CPU Training", variant="secondary")
-                    gpu_btn = gr.Button("🚀 Start GPU Training", variant="primary")
-                
-                result_output = gr.Textbox(
-                    label="Action Result",
-                    interactive=False
-                )
-            
-            with gr.Column():
-                gr.Markdown("## 🖼️ Latest Sample")
-                
-                sample_image = gr.Image(
-                    label="Generated Artwork",
-                    type="filepath"
-                )
-                
-                sample_info = gr.Textbox(
-                    label="Sample Info",
-                    interactive=False
-                )
-                
-                refresh_btn = gr.Button("🔄 Refresh", variant="secondary")
-        
-        # Event handlers
-        cpu_btn.click(
-            fn=start_cpu_training,
-            outputs=result_output
-        )
-        
-        gpu_btn.click(
-            fn=start_gpu_training,
-            outputs=result_output
-        )
-        
-        def refresh_all():
-            status = check_training_status()
-            progress = get_progress_info()
-            sample_path, sample_desc = get_latest_sample()
-            return status, progress, sample_path, sample_desc
-        
-        refresh_btn.click(
-            fn=refresh_all,
-            outputs=[status_output, progress_output, sample_image, sample_info]
-        )
-        
-        # Auto-refresh every 30 seconds
-        interface.load(
-            fn=refresh_all,
-            outputs=[status_output, progress_output, sample_image, sample_info],
-            every=30
-        )
-    
-    return interface
-
-def main():
-    """Main application."""
-    print("🎨 MonoX Training Interface Starting...")
-    
-    # Setup
-    setup_result = setup_environment()
-    print(setup_result)
-    
-    # Create and launch interface
-    interface = create_interface()
-    interface.launch(
-        server_name="0.0.0.0",
-        server_port=7860,
-        share=False
-    )
-
-if __name__ == "__main__":
-    main()
+# Initialize environment on startup
+setup_environment()
