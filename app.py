@@ -172,11 +172,11 @@ def create_interface():
             outputs=[status_output, progress_output, sample_image, sample_info]
         )
         
-        # Auto-refresh every 30 seconds
+        # Auto-refresh every 10 seconds for CPU visibility
         interface.load(
             fn=refresh_all,
             outputs=[status_output, progress_output, sample_image, sample_info],
-            every=30
+            every=10
         )
     
     return interface

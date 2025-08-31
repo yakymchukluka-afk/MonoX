@@ -229,10 +229,10 @@ def train_simple_gan():
     # Loss function
     adversarial_loss = nn.BCELoss()
     
-    # Create output directories
-    output_dir = Path("/workspace/training_output")
-    checkpoints_dir = Path("/workspace/checkpoints")
-    previews_dir = Path("/workspace/previews")
+    # Create output directories (relative to Space working dir)
+    output_dir = Path("training_output")
+    checkpoints_dir = Path("checkpoints")
+    previews_dir = Path("previews")
     
     for directory in [output_dir, checkpoints_dir, previews_dir]:
         directory.mkdir(exist_ok=True)
@@ -330,32 +330,20 @@ def main():
     print("🎯 Direct PyTorch implementation for reliable training")
     print("=" * 70)
     
-    # Validate authentication
+    # Optional authentication (uploads enabled if token present)
     hf_token = os.environ.get('HF_TOKEN')
-    if not hf_token:
-        print("❌ HF_TOKEN not found in environment!")
-        print("💡 Set: export HF_TOKEN='your_token_here'")
-        return 1
+    if hf_token:
+        try:
+            from huggingface_hub import whoami
+            user_info = whoami(token=hf_token)
+            print(f"✅ Authenticated as: {user_info['name']}")
+        except Exception as e:
+            print(f"⚠️ Authentication failed, continuing without uploads: {e}")
+            hf_token = None
+    else:
+        print("ℹ️ No HF_TOKEN set. Training will run; uploads disabled.")
     
-    try:
-        from huggingface_hub import whoami
-        user_info = whoami(token=hf_token)
-        print(f"✅ Authenticated as: {user_info['name']}")
-    except Exception as e:
-        print(f"❌ Authentication failed: {e}")
-        return 1
-    
-    # Validate dataset
-    dataset_path = Path("/workspace/dataset")
-    image_files = list(dataset_path.glob("*.jpg")) + list(dataset_path.glob("*.png"))
-    
-    print(f"📊 Dataset: {len(image_files)} images")
-    print(f"📁 Output: /workspace/training_output")
-    print(f"📤 Upload: lukua/monox model repo")
-    
-    if len(image_files) == 0:
-        print("❌ No training images found!")
-        return 1
+    print("📤 Upload target: lukua/monox (uploads only if HF_TOKEN is set)")
     
     print("\\n🚀 Starting GAN training...")
     print("📝 Training will:")
