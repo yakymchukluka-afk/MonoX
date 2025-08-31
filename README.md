@@ -1,137 +1,79 @@
-# MonoX
+---
+title: MonoX StyleGAN-V Training
+emoji: 🎨
+colorFrom: purple
+colorTo: pink
+sdk: gradio
+sdk_version: 4.44.0
+app_file: app.py
+pinned: false
+license: mit
+---
 
-A participative art project powered by StyleGAN-V for generating dynamic visual content.
+# MonoX StyleGAN-V Training Interface
+
+A Hugging Face Space for training StyleGAN-V models using the MonoX framework with monotype-inspired artwork generation.
+
+## Features
+
+- **Fresh Training**: Train from scratch using 1024px monotype dataset
+- **Web Interface**: Easy-to-use Gradio interface for training control
+- **CPU/GPU Support**: Works with both CPU and GPU compute
+- **Automatic Uploads**: All outputs uploaded to lukua/monox model repo
+- **Real-time Monitoring**: Live training progress and status updates
 
 ## Quick Start
 
-MonoX uses **`train.py`** as the single entrypoint for all training operations. It loads Hydra configurations from `configs/` and delegates to the StyleGAN-V submodule.
+1. **Set HF Token**: Add your HF token as a Space secret named `HF_TOKEN`
+2. **Start Training**: Use the web interface or run training scripts
+3. **Monitor Progress**: Check real-time status and outputs
+4. **View Results**: All outputs automatically uploaded to lukua/monox
 
-### Installation
+## Training Configuration
 
+- **Dataset**: lukua/monox-dataset (868 images at 1024×1024)
+- **Architecture**: GAN with Generator and Discriminator
+- **Training**: 50 epochs with checkpoints every 5 epochs
+- **Outputs**: Checkpoints, preview images, and comprehensive logs
+
+## Usage
+
+### Web Interface
+Access the Gradio interface to:
+- Check system status and configuration
+- Start/stop training processes
+- Monitor training progress in real-time
+- View generated samples and checkpoints
+
+### Direct Training
 ```bash
-git clone https://github.com/yakymchukluka-afk/MonoX.git
-cd MonoX
-pip install -r requirements.txt
+python3 simple_gan_training.py
 ```
 
-### Basic Usage
-
+### Monitor Progress
 ```bash
-# Basic training with default settings
-python train.py dataset.path=/path/to/your/dataset
-
-# Training with custom parameters
-python train.py dataset.path=/path/to/data dataset=ffs training.total_kimg=3000
-
-# Quick smoke test (config validation only)
-python train.py dataset=ffs training.steps=10 launcher=local
+python3 monitor_training.py
 ```
 
-### Colab Instructions
+## Output Structure
 
-For Google Colab environments, use this minimal smoke test command:
+All outputs are uploaded to `lukua/monox`:
+- `/checkpoints` - Model checkpoints every 5 epochs
+- `/previews` - Generated sample images per epoch
+- `/logs` - Training logs and progress reports
 
-```python
-!python train.py \
-    dataset=ffs \
-    training.steps=10 \
-    training.batch=2 \
-    training.num_workers=0 \
-    training.fp16=false \
-    launcher=local
-```
+## Hardware Requirements
 
-For actual training in Colab:
+- **CPU**: Works with free CPU compute (slower but functional)
+- **GPU**: Faster training with paid GPU compute
+- **Memory**: Optimized for available resources
 
-```python
-# Set up your dataset path
-!python train.py \
-    dataset.path=/content/drive/MyDrive/MonoX/dataset \
-    dataset=ffs \
-    training.total_kimg=3000 \
-    training.log_dir=/content/drive/MyDrive/MonoX/logs \
-    training.preview_dir=/content/drive/MyDrive/MonoX/previews
-```
+## Security
 
-### Local Testing
+- All authentication via environment variables
+- No hardcoded tokens in source code
+- Secure HF token handling
 
-Run the smoke test to verify everything is working:
+## License
 
-```bash
-# Using the test script
-./scripts/test_train.sh
-
-# Or manually
-python train.py dataset=ffs training.steps=10 launcher=local
-```
-
-## Configuration
-
-### Main Parameters
-
-- `dataset.path`: Path to your training dataset
-- `dataset`: Dataset configuration (ffs, ucf101, mead, etc.)
-- `training.total_kimg`: Total training duration in thousands of images
-- `training.steps`: Override for quick testing (use instead of total_kimg)
-- `training.batch`: Batch size override
-- `training.num_workers`: DataLoader workers (set to 0 for Colab)
-- `training.fp16`: Enable/disable mixed precision training
-- `launcher`: Training mode (`stylegan` for full training, `local` for testing)
-
-### Config Files
-
-- `configs/config.yaml`: Main configuration file
-- `configs/training/base.yaml`: Training-specific settings
-- Configuration follows Hydra conventions with support for overrides
-
-### Example Commands
-
-```bash
-# Full training run
-python train.py dataset.path=/data/videos dataset=ffs training.total_kimg=5000
-
-# Quick test with small batch
-python train.py dataset=ffs training.steps=50 training.batch=4 launcher=local
-
-# Resume from checkpoint
-python train.py dataset.path=/data/videos training.resume=/path/to/checkpoint.pkl
-
-# Custom output directories
-python train.py \
-    dataset.path=/data/videos \
-    training.log_dir=./logs \
-    training.preview_dir=./previews \
-    training.checkpoint_dir=./checkpoints
-```
-
-## Architecture
-
-- **`train.py`**: Single entrypoint with Hydra configuration loading
-- **`configs/`**: Hydra configuration files for datasets, training, sampling
-- **`.external/stylegan-v/`**: StyleGAN-V submodule (automatically managed)
-- **`src/infra/`**: Legacy infrastructure (deprecated in favor of train.py)
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Missing dataset path**: Set `dataset.path` or `DATASET_DIR` environment variable
-2. **Hydra interpolation errors**: Ensure all config files have required fields
-3. **Import errors**: Run from MonoX root directory
-4. **Memory issues**: Reduce `training.batch` or set `training.fp16=true`
-
-### Environment Variables
-
-- `DATASET_DIR`: Default dataset path
-- `LOGS_DIR`: Default logs directory
-- `PREVIEWS_DIR`: Default previews directory
-- `CKPT_DIR`: Default checkpoints directory
-
-## Development
-
-The project uses:
-- **Hydra** for configuration management
-- **StyleGAN-V** as the core training engine
-- **OmegaConf** for flexible config overrides
-
-See `configs/config.yaml` for the full configuration schema.
+MIT License

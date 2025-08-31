@@ -1,0 +1,15 @@
+# Large files (>100MB) - excluded from git
+core
+*.pth
+*.ckpt
+checkpoints/
+previews/
+.external/
+*.core
+__pycache__/
+*.pyc
+*.pyo
+*.log
+.DS_Store
+.vscode/
+.idea/
