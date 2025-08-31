@@ -182,33 +182,16 @@ def create_interface():
     return interface
 
 def main():
-    """Main application."""
-    print("🎨 MonoX Training Interface Starting...")
-    
-    # Setup
+    """Local dev entrypoint (not used on Spaces)."""
     setup_result = setup_environment()
     print(setup_result)
-    
-    # Optionally auto-start training on Space boot
-    auto_start = os.environ.get("AUTO_START_TRAINING", "").strip().lower() in {"1", "true", "yes", "on"}
-    if auto_start:
-        try:
-            import torch
-            if torch.cuda.is_available():
-                print("🚀 AUTO_START_TRAINING=1 detected: starting GPU training...")
-                start_gpu_training()
-            else:
-                print("🚀 AUTO_START_TRAINING=1 detected: starting CPU training...")
-                start_cpu_training()
-        except Exception as e:
-            print(f"⚠️ Auto-start failed: {e}")
-    
-    # Launch Gradio app (Spaces runs this script directly)
     interface = create_interface()
     port = int(os.environ.get("PORT", "7860"))
     interface.launch(server_name="0.0.0.0", server_port=port, share=False)
 
 """Expose Gradio Blocks for Spaces runner."""
+# Ensure dirs exist at import time on Spaces
+setup_environment()
 demo = create_interface()
 
 if __name__ == "__main__":
