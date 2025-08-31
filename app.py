@@ -22,12 +22,17 @@ def setup_environment():
 def check_training_status():
     """Check if training is running."""
     try:
-        result = subprocess.run(['pgrep', '-f', 'gan_training'], capture_output=True, text=True)
+        # Look for either CPU or GPU training scripts
+        result = subprocess.run(
+            ['bash', '-lc', "pgrep -f 'simple_gan_training.py|gpu_gan_training.py'"],
+            capture_output=True,
+            text=True
+        )
         if result.stdout.strip():
             return "🟢 Training is RUNNING"
         else:
             return "🔴 Training is STOPPED"
-    except:
+    except Exception:
         return "❓ Status unknown"
 
 def get_progress_info():
@@ -81,12 +86,20 @@ def get_latest_sample():
     if not preview_dir.exists():
         return None, "No samples generated yet"
     
-    samples = sorted(preview_dir.glob("samples_epoch_*.png"), key=lambda x: x.stat().st_mtime)
+    # Support both CPU and GPU training sample naming
+    patterns = ["samples_epoch_*.png", "gpu_samples_epoch_*.png"]
+    samples = []
+    for pattern in patterns:
+        samples.extend(preview_dir.glob(pattern))
+    samples = sorted(samples, key=lambda x: x.stat().st_mtime)
     if not samples:
         return None, "No samples found"
     
     latest = samples[-1]
-    epoch_num = int(latest.stem.split('_')[-1])
+    try:
+        epoch_num = int(latest.stem.split('_')[-1])
+    except Exception:
+        epoch_num = -1
     size_mb = latest.stat().st_size / (1024*1024)
     
     return str(latest), f"Epoch {epoch_num} - {size_mb:.1f}MB"
@@ -175,6 +188,20 @@ def main():
     # Setup
     setup_result = setup_environment()
     print(setup_result)
+    
+    # Optionally auto-start training on Space boot
+    auto_start = os.environ.get("AUTO_START_TRAINING", "").strip().lower() in {"1", "true", "yes", "on"}
+    if auto_start:
+        try:
+            import torch
+            if torch.cuda.is_available():
+                print("🚀 AUTO_START_TRAINING=1 detected: starting GPU training...")
+                start_gpu_training()
+            else:
+                print("🚀 AUTO_START_TRAINING=1 detected: starting CPU training...")
+                start_cpu_training()
+        except Exception as e:
+            print(f"⚠️ Auto-start failed: {e}")
     
     # Create and launch interface
     interface = create_interface()
