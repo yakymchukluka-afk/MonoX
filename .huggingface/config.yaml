@@ -1,6 +1,15 @@
 # HF Spaces Configuration
-# Disable automatic git configuration that causes permission errors
+# Enhanced configuration to prevent git permission errors
 
 build:
-  # Skip problematic git config commands
+  # Use custom Dockerfile with proper user permissions
+  dockerfile: Dockerfile
+  # Skip automatic git configuration
   skip_git_config: true
+  # Pre-build script to handle git setup
+  pre_build: .huggingface/pre_build.sh
+
+runtime:
+  # Optimize for GPU training
+  enable_gpu: true
+  gpu_memory_fraction: 0.8
