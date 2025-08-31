@@ -203,7 +203,9 @@ def main():
         except Exception as e:
             print(f"⚠️ Auto-start failed: {e}")
     
-    # Create and launch interface
+    # In Spaces, the runner will serve `demo`. Avoid double launch here.
+    if os.environ.get("SPACES", ""):  # heuristic env set by HF
+        return
     interface = create_interface()
     port = int(os.environ.get("PORT", "7860"))
     interface.launch(server_name="0.0.0.0", server_port=port, share=False)
