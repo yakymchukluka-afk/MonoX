@@ -38,7 +38,8 @@ class MonoXTrainingConfig:
             "PYTHONUNBUFFERED": "1",
             "CUDA_LAUNCH_BLOCKING": "1",
             "TORCH_USE_CUDA_DSA": "1",
-            "HF_TOKEN": "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"
+            # HF_TOKEN should be set via environment variable or Space secret
+            # Do not hardcode tokens in source files!
         }
         
         for key, value in env_vars.items():

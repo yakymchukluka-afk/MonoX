@@ -10,7 +10,8 @@ echo "=" * 70
 # Setup environment
 export PATH="/home/ubuntu/.local/bin:$PATH"
 export PYTHONPATH="/workspace/.external/stylegan-v:/workspace"
-export HF_TOKEN="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"
+# HF_TOKEN should be set as environment variable or Space secret
+# Do not hardcode tokens in source files!
 export PYTHONUNBUFFERED=1
 
 # Change to workspace

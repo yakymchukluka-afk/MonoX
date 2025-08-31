@@ -22,7 +22,7 @@ def setup_environment():
     env_vars = {
         "PYTHONPATH": "/workspace/.external/stylegan-v:/workspace",
         "PYTHONUNBUFFERED": "1",
-        "HF_TOKEN": "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",
+        # HF_TOKEN should be set via environment variable or Space secret
         "PATH": "/home/ubuntu/.local/bin:" + os.environ.get("PATH", ""),
         "TORCH_EXTENSIONS_DIR": "/tmp/torch_extensions"
     }
