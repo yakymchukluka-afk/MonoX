@@ -1,0 +1,7 @@
+Could not override 'training.total_kimg'.
+To append to your config use +training.total_kimg=1
+Key 'total_kimg' is not in struct
+    full_key: training.total_kimg
+    object_type=dict
+
+Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.

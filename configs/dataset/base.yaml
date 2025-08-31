@@ -1,6 +1,6 @@
 # Base dataset configuration
 # Default dataset settings that can be overridden
 
-path: ${oc.env:DATASET_DIR,""}
+path: ${oc.env:DATASET_DIR,/workspace/dataset}
 resolution: 1024
 c_dim: 0  # Conditional dimension (0 for unconditional generation)

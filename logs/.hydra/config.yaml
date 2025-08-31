@@ -1,0 +1,34 @@
+dataset:
+  path: /workspace/dataset
+  resolution: 512
+  c_dim: 0
+_:
+  training:
+    total_kimg: 3000
+    snapshot_kimg: 250
+    log_dir: logs
+    preview_dir: previews
+    checkpoint_dir: checkpoints
+visualizer:
+  save_every_kimg: 50
+  output_dir: ${oc.env:PREVIEWS_DIR,previews}
+  grid_size: 4
+  num_samples: 16
+  truncation_psi: 1.0
+exp_suffix: test_run
+num_gpus: 1
+training:
+  total_kimg: 1
+  snapshot_kimg: 1
+  steps: null
+  batch: 2
+  num_workers: 2
+  fp16: false
+  num_gpus: 0
+  log_dir: ${oc.env:LOGS_DIR,/workspace/logs}
+  preview_dir: ${oc.env:PREVIEWS_DIR,/workspace/previews}
+  checkpoint_dir: ${oc.env:CKPT_DIR,/workspace/checkpoints}
+  resume: ''
+launcher: stylegan
+sampling:
+  truncation_psi: 1.0
