@@ -8,6 +8,7 @@ sdk_version: 4.44.0
 app_file: app.py
 pinned: false
 license: mit
+gradi o: app.py:demo
 ---
 
 # MonoX StyleGAN-V Training Interface

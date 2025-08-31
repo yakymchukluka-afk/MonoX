@@ -22,12 +22,17 @@ def setup_environment():
 def check_training_status():
     """Check if training is running."""
     try:
-        result = subprocess.run(['pgrep', '-f', 'gan_training'], capture_output=True, text=True)
+        # Look for either CPU or GPU training scripts
+        result = subprocess.run(
+            ['bash', '-lc', "pgrep -f 'simple_gan_training.py|gpu_gan_training.py'"],
+            capture_output=True,
+            text=True
+        )
         if result.stdout.strip():
             return "🟢 Training is RUNNING"
         else:
             return "🔴 Training is STOPPED"
-    except:
+    except Exception:
         return "❓ Status unknown"
 
 def get_progress_info():
@@ -81,12 +86,20 @@ def get_latest_sample():
     if not preview_dir.exists():
         return None, "No samples generated yet"
     
-    samples = sorted(preview_dir.glob("samples_epoch_*.png"), key=lambda x: x.stat().st_mtime)
+    # Support both CPU and GPU training sample naming
+    patterns = ["samples_epoch_*.png", "gpu_samples_epoch_*.png"]
+    samples = []
+    for pattern in patterns:
+        samples.extend(preview_dir.glob(pattern))
+    samples = sorted(samples, key=lambda x: x.stat().st_mtime)
     if not samples:
         return None, "No samples found"
     
     latest = samples[-1]
-    epoch_num = int(latest.stem.split('_')[-1])
+    try:
+        epoch_num = int(latest.stem.split('_')[-1])
+    except Exception:
+        epoch_num = -1
     size_mb = latest.stat().st_size / (1024*1024)
     
     return str(latest), f"Epoch {epoch_num} - {size_mb:.1f}MB"
@@ -159,30 +172,27 @@ def create_interface():
             outputs=[status_output, progress_output, sample_image, sample_info]
         )
         
-        # Auto-refresh every 30 seconds
+        # Auto-refresh every 10 seconds for CPU visibility
         interface.load(
             fn=refresh_all,
             outputs=[status_output, progress_output, sample_image, sample_info],
-            every=30
+            every=10
         )
     
     return interface
 
 def main():
-    """Main application."""
-    print("🎨 MonoX Training Interface Starting...")
-    
-    # Setup
+    """Local dev entrypoint (not used on Spaces)."""
     setup_result = setup_environment()
     print(setup_result)
-    
-    # Create and launch interface
     interface = create_interface()
-    interface.launch(
-        server_name="0.0.0.0",
-        server_port=7860,
-        share=False
-    )
+    port = int(os.environ.get("PORT", "7860"))
+    interface.launch(server_name="0.0.0.0", server_port=port, share=False)
+
+"""Expose Gradio Blocks for Spaces runner."""
+# Ensure dirs exist at import time on Spaces
+setup_environment()
+demo = create_interface()
 
 if __name__ == "__main__":
     main()

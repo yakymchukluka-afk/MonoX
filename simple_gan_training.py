@@ -19,6 +19,7 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader, Dataset
 from PIL import Image
 import numpy as np
+from datasets import load_dataset
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -49,6 +50,26 @@ class ImageDataset(Dataset):
         img_path = self.image_files[idx]
         image = Image.open(img_path).convert('RGB')
         return self.transform(image)
+
+class HFMonoxDataset(Dataset):
+    """HF dataset wrapper for lukua/monox-dataset."""
+    def __init__(self, split: str = "train", image_size: int = 512):
+        self.ds = load_dataset("lukua/monox-dataset", split=split)
+        self.transform = transforms.Compose([
+            transforms.Resize((image_size, image_size)),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        ])
+
+    def __len__(self):
+        return len(self.ds)
+
+    def __getitem__(self, idx):
+        sample = self.ds[idx]
+        img = sample.get("image", sample)
+        if not isinstance(img, Image.Image):
+            img = Image.fromarray(np.array(img))
+        return self.transform(img)
 
 class Generator(nn.Module):
     """Simple Generator network."""
@@ -187,8 +208,14 @@ def train_simple_gan():
     lr = 0.0002
     epochs = 50  # 50 epochs for good results
     
-    # Create dataset
-    dataset = ImageDataset("/workspace/dataset", image_size=img_size)
+    # Create dataset (HF dataset for CPU or GPU)
+    try:
+        dataset = HFMonoxDataset(image_size=img_size)
+        logger.info(f"✅ Loaded HF dataset: lukua/monox-dataset ({len(dataset)} images)")
+    except Exception as e:
+        logger.error(f"⚠️  Failed to load HF dataset: {e}")
+        logger.info("   Falling back to local /workspace/dataset if available...")
+        dataset = ImageDataset("/workspace/dataset", image_size=img_size)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)  # No multiprocessing to avoid shared memory issues
     
     # Create models
@@ -202,10 +229,10 @@ def train_simple_gan():
     # Loss function
     adversarial_loss = nn.BCELoss()
     
-    # Create output directories
-    output_dir = Path("/workspace/training_output")
-    checkpoints_dir = Path("/workspace/checkpoints")
-    previews_dir = Path("/workspace/previews")
+    # Create output directories (relative to Space working dir)
+    output_dir = Path("training_output")
+    checkpoints_dir = Path("checkpoints")
+    previews_dir = Path("previews")
     
     for directory in [output_dir, checkpoints_dir, previews_dir]:
         directory.mkdir(exist_ok=True)
@@ -266,7 +293,7 @@ def train_simple_gan():
                 'd_loss': d_loss.item()
             }
             
-            ckpt_path = checkpoints_dir / f"monox_checkpoint_epoch_{epoch+1:04d}.pt"
+            ckpt_path = checkpoints_dir / f"monox_checkpoint_epoch_{epoch+1:04d}.pth"
             torch.save(checkpoint, ckpt_path)
             logger.info(f"💾 Saved checkpoint: {ckpt_path.name}")
             
@@ -281,7 +308,7 @@ def train_simple_gan():
         logger.info(f"✅ Epoch {epoch+1} completed in {epoch_time:.2f}s")
     
     # Save final model
-    final_model_path = checkpoints_dir / "monox_final_model.pt"
+    final_model_path = checkpoints_dir / "monox_final_model.pth"
     torch.save({
         'generator': generator.state_dict(),
         'discriminator': discriminator.state_dict(),
@@ -303,32 +330,20 @@ def main():
     print("🎯 Direct PyTorch implementation for reliable training")
     print("=" * 70)
     
-    # Validate authentication
+    # Optional authentication (uploads enabled if token present)
     hf_token = os.environ.get('HF_TOKEN')
-    if not hf_token:
-        print("❌ HF_TOKEN not found in environment!")
-        print("💡 Set: export HF_TOKEN='your_token_here'")
-        return 1
+    if hf_token:
+        try:
+            from huggingface_hub import whoami
+            user_info = whoami(token=hf_token)
+            print(f"✅ Authenticated as: {user_info['name']}")
+        except Exception as e:
+            print(f"⚠️ Authentication failed, continuing without uploads: {e}")
+            hf_token = None
+    else:
+        print("ℹ️ No HF_TOKEN set. Training will run; uploads disabled.")
     
-    try:
-        from huggingface_hub import whoami
-        user_info = whoami(token=hf_token)
-        print(f"✅ Authenticated as: {user_info['name']}")
-    except Exception as e:
-        print(f"❌ Authentication failed: {e}")
-        return 1
-    
-    # Validate dataset
-    dataset_path = Path("/workspace/dataset")
-    image_files = list(dataset_path.glob("*.jpg")) + list(dataset_path.glob("*.png"))
-    
-    print(f"📊 Dataset: {len(image_files)} images")
-    print(f"📁 Output: /workspace/training_output")
-    print(f"📤 Upload: lukua/monox model repo")
-    
-    if len(image_files) == 0:
-        print("❌ No training images found!")
-        return 1
+    print("📤 Upload target: lukua/monox (uploads only if HF_TOKEN is set)")
     
     print("\\n🚀 Starting GAN training...")
     print("📝 Training will:")
