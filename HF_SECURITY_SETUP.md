@@ -12,7 +12,7 @@ The previous HF token was automatically invalidated because it was exposed in so
 2. **Navigate to "Repository secrets"**
 3. **Add a new secret**:
    - **Name**: `HF_TOKEN`
-   - **Value**: `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`
+   - **Value**: `[YOUR_NEW_HF_TOKEN_HERE]`
 4. **Save the secret**
 5. **Restart your Space**
 
@@ -21,7 +21,7 @@ The previous HF token was automatically invalidated because it was exposed in so
 If you're using Dev Mode, set the token as an environment variable:
 
 ```bash
-export HF_TOKEN="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"
+export HF_TOKEN="[REPLACE_WITH_YOUR_ACTUAL_TOKEN]"
 ```
 
 ## ✅ Security Improvements Made
@@ -69,7 +69,7 @@ Choose one of the methods above to set `HF_TOKEN` securely.
 ### **2. Start Training**
 ```bash
 # Make sure token is set
-export HF_TOKEN="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"
+export HF_TOKEN="[REPLACE_WITH_YOUR_ACTUAL_TOKEN]"
 
 # Start secure training
 python3 secure_training.py
