@@ -203,9 +203,7 @@ def main():
         except Exception as e:
             print(f"⚠️ Auto-start failed: {e}")
     
-    # In Spaces, the runner will serve `demo`. Avoid double launch here.
-    if os.environ.get("SPACES", "1"):  # default assume Spaces
-        return
+    # Launch Gradio app (Spaces runs this script directly)
     interface = create_interface()
     port = int(os.environ.get("PORT", "7860"))
     interface.launch(server_name="0.0.0.0", server_port=port, share=False)
