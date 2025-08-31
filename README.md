@@ -1,137 +1,126 @@
-# MonoX
+---
+title: MonoX StyleGAN-V Training
+emoji: 🎨
+colorFrom: purple
+colorTo: pink
+sdk: gradio
+sdk_version: 4.44.0
+app_file: app.py
+pinned: false
+license: mit
+python_version: 3.9
+---
 
-A participative art project powered by StyleGAN-V for generating dynamic visual content.
+# MonoX StyleGAN-V Training Interface
 
-## Quick Start
+A Hugging Face Space for training StyleGAN-V models using the MonoX framework.
 
-MonoX uses **`train.py`** as the single entrypoint for all training operations. It loads Hydra configurations from `configs/` and delegates to the StyleGAN-V submodule.
+## Features
 
-### Installation
+- **Web Interface**: Easy-to-use Gradio interface for training control
+- **JSON API**: RESTful API endpoints for programmatic access
+- **Real-time Monitoring**: Live training logs and status updates
+- **GPU Support**: Automatic CUDA detection and GPU utilization
+- **Checkpoint Management**: List and manage training checkpoints
 
-```bash
-git clone https://github.com/yakymchukluka-afk/MonoX.git
-cd MonoX
-pip install -r requirements.txt
-```
+## API Endpoints
 
-### Basic Usage
+### System Information
+- `GET /` - API information and available endpoints
+- `GET /system/info` - System status, GPU info, workspace status
+- `GET /health` - Health check endpoint
 
-```bash
-# Basic training with default settings
-python train.py dataset.path=/path/to/your/dataset
+### Training Control
+- `POST /training/start` - Start training with configuration
+- `POST /training/stop` - Stop current training process
+- `GET /training/status` - Get current training status
+- `GET /training/logs?lines=500` - Get training logs
 
-# Training with custom parameters
-python train.py dataset.path=/path/to/data dataset=ffs training.total_kimg=3000
+### Checkpoint Management
+- `GET /checkpoints/list` - List available checkpoints
 
-# Quick smoke test (config validation only)
-python train.py dataset=ffs training.steps=10 launcher=local
-```
+## Usage
 
-### Colab Instructions
+### Web Interface
+Access the Gradio interface directly in your browser to:
+- Check system status and GPU availability
+- Start/stop training with custom parameters
+- Monitor training progress in real-time
+- View and manage checkpoints
 
-For Google Colab environments, use this minimal smoke test command:
+### API Usage
+Use the JSON API for programmatic control:
 
 ```python
-!python train.py \
-    dataset=ffs \
-    training.steps=10 \
-    training.batch=2 \
-    training.num_workers=0 \
-    training.fp16=false \
-    launcher=local
-```
+import requests
 
-For actual training in Colab:
+# Check system status
+response = requests.get("https://your-space-url/system/info")
+print(response.json())
 
-```python
-# Set up your dataset path
-!python train.py \
-    dataset.path=/content/drive/MyDrive/MonoX/dataset \
-    dataset=ffs \
-    training.total_kimg=3000 \
-    training.log_dir=/content/drive/MyDrive/MonoX/logs \
-    training.preview_dir=/content/drive/MyDrive/MonoX/previews
-```
+# Start training
+training_config = {
+    "dataset_path": "/workspace/dataset",
+    "total_kimg": 1000,
+    "resolution": 1024,
+    "num_gpus": 1
+}
+response = requests.post("https://your-space-url/training/start", json=training_config)
+print(response.json())
 
-### Local Testing
-
-Run the smoke test to verify everything is working:
-
-```bash
-# Using the test script
-./scripts/test_train.sh
-
-# Or manually
-python train.py dataset=ffs training.steps=10 launcher=local
+# Check training status
+response = requests.get("https://your-space-url/training/status")
+print(response.json())
 ```
 
 ## Configuration
 
-### Main Parameters
+### Environment Variables
+- `DATASET_DIR`: Path to training dataset (default: `/workspace/dataset`)
+- `LOGS_DIR`: Directory for training logs (default: `logs`)
+- `CKPT_DIR`: Directory for checkpoints (default: `checkpoints`)
 
-- `dataset.path`: Path to your training dataset
-- `dataset`: Dataset configuration (ffs, ucf101, mead, etc.)
-- `training.total_kimg`: Total training duration in thousands of images
-- `training.steps`: Override for quick testing (use instead of total_kimg)
-- `training.batch`: Batch size override
-- `training.num_workers`: DataLoader workers (set to 0 for Colab)
-- `training.fp16`: Enable/disable mixed precision training
-- `launcher`: Training mode (`stylegan` for full training, `local` for testing)
-
-### Config Files
-
-- `configs/config.yaml`: Main configuration file
-- `configs/training/base.yaml`: Training-specific settings
-- Configuration follows Hydra conventions with support for overrides
-
-### Example Commands
-
-```bash
-# Full training run
-python train.py dataset.path=/data/videos dataset=ffs training.total_kimg=5000
-
-# Quick test with small batch
-python train.py dataset=ffs training.steps=50 training.batch=4 launcher=local
-
-# Resume from checkpoint
-python train.py dataset.path=/data/videos training.resume=/path/to/checkpoint.pkl
-
-# Custom output directories
-python train.py \
-    dataset.path=/data/videos \
-    training.log_dir=./logs \
-    training.preview_dir=./previews \
-    training.checkpoint_dir=./checkpoints
-```
-
-## Architecture
-
-- **`train.py`**: Single entrypoint with Hydra configuration loading
-- **`configs/`**: Hydra configuration files for datasets, training, sampling
-- **`.external/stylegan-v/`**: StyleGAN-V submodule (automatically managed)
-- **`src/infra/`**: Legacy infrastructure (deprecated in favor of train.py)
+### Training Parameters
+- **Dataset Path**: Path to your training images
+- **Total KImg**: Total training iterations in thousands
+- **Resolution**: Output image resolution (e.g., 1024)
+- **Num GPUs**: Number of GPUs to use for training
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Missing dataset path**: Set `dataset.path` or `DATASET_DIR` environment variable
-2. **Hydra interpolation errors**: Ensure all config files have required fields
-3. **Import errors**: Run from MonoX root directory
-4. **Memory issues**: Reduce `training.batch` or set `training.fp16=true`
+1. **"Unexpected token '<', DOCTYPE..." Error**
+   - This occurs when accessing HTML endpoints as JSON API
+   - Use the correct API endpoints listed above
+   - Ensure you're sending proper HTTP headers for JSON
 
-### Environment Variables
+2. **GPU Not Detected**
+   - Check if CUDA drivers are available in the environment
+   - Verify GPU quota and availability in Hugging Face Spaces
 
-- `DATASET_DIR`: Default dataset path
-- `LOGS_DIR`: Default logs directory
-- `PREVIEWS_DIR`: Default previews directory
-- `CKPT_DIR`: Default checkpoints directory
+3. **Training Won't Start**
+   - Ensure dataset path exists and contains valid images
+   - Check system logs for detailed error messages
+   - Verify all dependencies are installed
+
+### Getting Help
+
+If you encounter issues:
+1. Check the system info endpoint for environment status
+2. Review training logs for specific error messages
+3. Ensure your dataset is properly formatted
+4. Check GPU availability and CUDA installation
 
 ## Development
 
-The project uses:
-- **Hydra** for configuration management
-- **StyleGAN-V** as the core training engine
-- **OmegaConf** for flexible config overrides
+This space uses:
+- **StyleGAN-V**: Advanced video-capable StyleGAN implementation
+- **Hydra**: Configuration management
+- **Gradio**: Web interface framework
+- **FastAPI**: JSON API backend
+- **PyTorch**: Deep learning framework
 
-See `configs/config.yaml` for the full configuration schema.
+## License
+
+MIT License - see LICENSE file for details.

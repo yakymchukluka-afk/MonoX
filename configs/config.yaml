@@ -20,17 +20,17 @@ num_gpus: 1  # Number of GPUs to use for training
 # No hydra configuration - let it use defaults
 
 training:
-  total_kimg: 3000
-  snapshot_kimg: 250
+  total_kimg: 1000  # Fresh training start
+  snapshot_kimg: 50  # Save every 5 epochs (50 kimg ≈ 5 epochs)
   steps: null  # Override total_kimg if set (for quick testing)
-  batch: null  # Batch size override
-  num_workers: null  # DataLoader workers override
-  fp16: null  # Mixed precision override
-  num_gpus: 1
-  log_dir: ${oc.env:LOGS_DIR,logs}
-  preview_dir: ${oc.env:PREVIEWS_DIR,previews}
-  checkpoint_dir: ${oc.env:CKPT_DIR,checkpoints}
-  resume: ""
+  batch: 4  # Smaller batch for CPU/limited GPU
+  num_workers: 2  # Reduced workers for stability
+  fp16: false  # Disable for CPU training
+  num_gpus: 0  # CPU training (will auto-detect GPU if available)
+  log_dir: ${oc.env:LOGS_DIR,/workspace/logs}
+  preview_dir: ${oc.env:PREVIEWS_DIR,/workspace/previews}
+  checkpoint_dir: ${oc.env:CKPT_DIR,/workspace/checkpoints}
+  resume: ""  # Fresh training from scratch
 
 # Training mode/launcher
 launcher: stylegan  # Options: stylegan, local

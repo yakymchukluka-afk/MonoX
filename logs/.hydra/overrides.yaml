@@ -1,0 +1,7 @@
+- dataset.path=/workspace/dataset
+- dataset.resolution=512
+- training.total_kimg=1
+- training.snapshot_kimg=1
+- training.num_gpus=0
+- training.batch=2
+- exp_suffix=test_run
