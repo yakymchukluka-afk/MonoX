@@ -159,11 +159,17 @@ def create_interface():
             outputs=[status_output, progress_output, sample_image, sample_info]
         )
         
-        # Auto-refresh every 30 seconds
+        # Run once on load
         interface.load(
             fn=refresh_all,
-            outputs=[status_output, progress_output, sample_image, sample_info],
-            every=30
+            outputs=[status_output, progress_output, sample_image, sample_info]
+        )
+
+        # Auto-refresh every 30 seconds (Gradio 4+ API)
+        auto_timer = gr.Timer(interval=30.0)
+        auto_timer.tick(
+            fn=refresh_all,
+            outputs=[status_output, progress_output, sample_image, sample_info]
         )
     
     return interface
