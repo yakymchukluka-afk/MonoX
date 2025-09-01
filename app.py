@@ -163,7 +163,7 @@ def create_interface():
         )
         
         # Auto-refresh every 30 seconds (Gradio 4+ API)
-        auto_timer = gr.Timer(interval=30.0)
+        auto_timer = gr.Timer(30.0)
         auto_timer.tick(
             fn=refresh_all,
             outputs=[status_output, progress_output, sample_image, sample_info]
