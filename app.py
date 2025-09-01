@@ -182,13 +182,15 @@ def main():
     setup_result = setup_environment()
     print(setup_result)
     
-    # Create and launch interface
-    interface = create_interface()
-    interface.launch(
+    # Launch interface
+    demo.launch(
         server_name="0.0.0.0",
         server_port=7860,
         share=False
     )
+
+# Expose Gradio app for Hugging Face Spaces
+demo = create_interface()
 
 if __name__ == "__main__":
     main()
