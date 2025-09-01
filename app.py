@@ -125,14 +125,17 @@ def create_interface():
             with gr.Column():
                 gr.Markdown("## 🖼️ Latest Sample")
                 
+                sample_path_init, sample_desc_init = get_latest_sample()
                 sample_image = gr.Image(
                     label="Generated Artwork",
-                    type="filepath"
+                    type="filepath",
+                    value=sample_path_init
                 )
                 
                 sample_info = gr.Textbox(
                     label="Sample Info",
-                    interactive=False
+                    interactive=False,
+                    value=sample_desc_init
                 )
                 
                 refresh_btn = gr.Button("🔄 Refresh", variant="secondary")
@@ -159,12 +162,6 @@ def create_interface():
             outputs=[status_output, progress_output, sample_image, sample_info]
         )
         
-        # Run once on load
-        interface.load(
-            fn=refresh_all,
-            outputs=[status_output, progress_output, sample_image, sample_info]
-        )
-
         # Auto-refresh every 30 seconds (Gradio 4+ API)
         auto_timer = gr.Timer(interval=30.0)
         auto_timer.tick(
