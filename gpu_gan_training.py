@@ -151,11 +151,41 @@ def train_gpu_gan():
         from datasets import load_dataset
         dataset = load_dataset("lukua/monox-dataset", split="train")
         print(f"✅ Loaded dataset: {len(dataset)} images")
+        
+        # Convert HF dataset to PyTorch dataset
+        class HFDataset(torch.utils.data.Dataset):
+            def __init__(self, hf_dataset, transform=None):
+                self.dataset = hf_dataset
+                self.transform = transform
+            
+            def __len__(self):
+                return len(self.dataset)
+            
+            def __getitem__(self, idx):
+                item = self.dataset[idx]
+                image = item['image']
+                if self.transform:
+                    image = self.transform(image)
+                return image
+        
+        pytorch_dataset = HFDataset(dataset, transform=transform)
+        dataloader = DataLoader(pytorch_dataset, batch_size=batch_size, shuffle=True, num_workers=2)
+        print(f"✅ DataLoader created with {len(dataloader)} batches")
+        
     except Exception as e:
         print(f"⚠️  Dataset loading failed: {e}")
         print("   Creating dummy dataset for testing...")
         # Fallback to dummy data
-        dataset = torch.randn(100, 3, image_size, image_size)
+        class DummyDataset(torch.utils.data.Dataset):
+            def __init__(self, size=100):
+                self.size = size
+            def __len__(self):
+                return self.size
+            def __getitem__(self, idx):
+                return torch.randn(3, image_size, image_size)
+        
+        pytorch_dataset = DummyDataset()
+        dataloader = DataLoader(pytorch_dataset, batch_size=batch_size, shuffle=True)
     
     # Create models
     netG = GPUGenerator(nz=nz).to(device)
@@ -187,11 +217,13 @@ def train_gpu_gan():
     for epoch in range(num_epochs):
         epoch_start = time.time()
         
-        # Create dummy batch for this example
-        # In real implementation, use proper DataLoader
-        for i in range(10):  # Simulate 10 batches per epoch
-            batch_size_current = min(batch_size, 16)
-            real_data = torch.randn(batch_size_current, 3, image_size, image_size, device=device)
+        # Train on real data
+        for i, real_data in enumerate(dataloader):
+            if i >= 10:  # Limit batches per epoch for speed
+                break
+                
+            real_data = real_data.to(device)
+            batch_size_current = real_data.size(0)
             
             # Train Discriminator
             netD.zero_grad()
@@ -238,13 +270,35 @@ def train_gpu_gan():
                 'optimizerD_state_dict': optimizerD.state_dict(),
             }, checkpoint_path)
             print(f"💾 Checkpoint saved: {checkpoint_path}")
+            
+            # Upload checkpoint if HF_TOKEN is available
+            upload_file_to_hf(checkpoint_path)
         
-        # Upload progress every epoch
-        try:
-            from monitor_training import upload_progress
-            upload_progress()
-        except:
-            pass
+        # Upload preview every epoch
+        upload_file_to_hf(sample_path)
+
+def upload_file_to_hf(file_path):
+    """Upload file to HuggingFace model repo."""
+    try:
+        hf_token = os.environ.get('HF_TOKEN')
+        if not hf_token:
+            print("⚠️  HF_TOKEN not found, skipping upload")
+            return
+        
+        from huggingface_hub import upload_file
+        
+        # Upload to lukua/monox model repo
+        upload_file(
+            path_or_fileobj=file_path,
+            path_in_repo=file_path,  # Keep same relative path structure
+            repo_id="lukua/monox",
+            repo_type="model",
+            token=hf_token
+        )
+        print(f"📤 Uploaded: {file_path} to lukua/monox")
+        
+    except Exception as e:
+        print(f"❌ Upload failed for {file_path}: {e}")
 
 if __name__ == "__main__":
     train_gpu_gan()

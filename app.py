@@ -19,14 +19,22 @@ def setup_environment():
     
     return "✅ Environment ready"
 
+# Setup environment on import
+setup_environment()
+
 def check_training_status():
     """Check if training is running."""
     try:
-        result = subprocess.run(['pgrep', '-f', 'gan_training'], capture_output=True, text=True)
+        result = subprocess.run(['pgrep', '-f', 'gpu_gan_training.py'], capture_output=True, text=True)
         if result.stdout.strip():
             return "🟢 Training is RUNNING"
-        else:
-            return "🔴 Training is STOPPED"
+        
+        # Also check for simple_gan_training.py
+        result = subprocess.run(['pgrep', '-f', 'simple_gan_training.py'], capture_output=True, text=True)
+        if result.stdout.strip():
+            return "🟢 Training is RUNNING"
+        
+        return "🔴 Training is STOPPED"
     except:
         return "❓ Status unknown"
 
@@ -66,12 +74,8 @@ def start_cpu_training():
 def start_gpu_training():
     """Start GPU training if available."""
     try:
-        import torch
-        if torch.cuda.is_available():
-            subprocess.Popen(['python3', 'gpu_gan_training.py'])
-            return "🚀 GPU training started! Much faster - check back in 30 seconds!"
-        else:
-            return "⚠️ No GPU detected. Upgrade hardware in Space settings first."
+        subprocess.Popen(['python', '-u', 'gpu_gan_training.py'])
+        return "🚀 GPU training started! Check back in 30 seconds for first preview!"
     except Exception as e:
         return f"❌ Failed to start GPU training: {e}"
 
@@ -81,11 +85,16 @@ def get_latest_sample():
     if not preview_dir.exists():
         return None, "No samples generated yet"
     
-    samples = sorted(preview_dir.glob("samples_epoch_*.png"), key=lambda x: x.stat().st_mtime)
-    if not samples:
+    # Look for both GPU and regular samples
+    gpu_samples = sorted(preview_dir.glob("gpu_samples_epoch_*.png"), key=lambda x: x.stat().st_mtime)
+    regular_samples = sorted(preview_dir.glob("samples_epoch_*.png"), key=lambda x: x.stat().st_mtime)
+    
+    all_samples = gpu_samples + regular_samples
+    if not all_samples:
         return None, "No samples found"
     
-    latest = samples[-1]
+    # Get the most recent sample
+    latest = max(all_samples, key=lambda x: x.stat().st_mtime)
     epoch_num = int(latest.stem.split('_')[-1])
     size_mb = latest.stat().st_size / (1024*1024)
     
@@ -171,23 +180,12 @@ def create_interface():
     
     return interface
 
-def main():
-    """Main application."""
-    print("🎨 MonoX Training Interface Starting...")
-    
-    # Setup
-    setup_result = setup_environment()
-    print(setup_result)
-    
-    # Launch interface
-    demo.launch(
-        server_name="0.0.0.0",
-        server_port=7860,
-        share=False
-    )
-
 # Expose Gradio app for Hugging Face Spaces
 demo = create_interface()
 
 if __name__ == "__main__":
-    main()
+    print("🎨 MonoX Training Interface Starting...")
+    demo.launch(
+        server_name="0.0.0.0",
+        server_port=int(os.environ.get("PORT", "7860"))
+    )

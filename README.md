@@ -1,13 +1,15 @@
 ---
-title: MonoX StyleGAN-V Training
-emoji: 🎨
-colorFrom: purple
-colorTo: pink
+title: Monox
+emoji: 📊
+colorFrom: green
+colorTo: indigo
 sdk: gradio
-sdk_version: 4.44.0
+sdk_version: 5.44.1
 app_file: app.py
+gradio: app.py:demo
 pinned: false
 license: mit
+short_description: MonoX GAN training (GPU) with live previews and checkpoints.
 ---
 
 # MonoX StyleGAN-V Training Interface
