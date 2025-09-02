@@ -1,0 +1,43 @@
+MONOX REPOSITORY RESET CHECKPOINT
+================================
+
+Reset Date: 2025-09-01
+Reset Commit: 4e42c0a29bb8c3886a79a7424b7b26c1ae117412
+Reset Commit Message: "Standardize MonoX entrypoint and add comprehensive documentation"
+Reset Commit Date: Tue Aug 26 16:27:08 2025
+
+REASON FOR RESET:
+- Repository became cluttered with numerous Hugging Face training integration attempts
+- Training scripts and experimental code accumulated from August 28-31, 2025
+- Need to restore clean, working baseline before HF integration began
+
+WHAT WAS PRESERVED:
+✅ Core MonoX project structure (configs/, src/, scripts/)
+✅ Original train.py with Hydra configuration
+✅ StyleGAN-V submodule integration
+✅ Makefile and project documentation
+✅ Clean requirements.txt with essential dependencies
+
+WHAT WAS ADDED BACK:
+✅ FastAPI application (app.py) for latent walk generation
+✅ Updated requirements.txt with FastAPI dependencies
+✅ JSON saving logic for walk metadata
+✅ Health check and API documentation endpoints
+
+WHAT WAS MOVED TO /deprecated/:
+📁 All training experiment scripts (100+ files)
+📁 Colab setup and GPU training scripts
+📁 Docker files for HF Spaces
+📁 Training diagnostics and monitoring tools
+📁 All markdown documentation from training attempts
+
+CURRENT CLEAN STATE:
+- Functional FastAPI service for latent walk generation
+- Clean project structure based on August 26, 2025 baseline
+- All HF training logic preserved in /deprecated/ for future reference
+- Ready for isolated HF integration in separate pipeline/module
+
+NEXT STEPS:
+- HF training integration should be developed as separate module
+- Keep main Space focused on latent walk generation
+- Use /deprecated/ files as reference for future training pipeline
