@@ -55,25 +55,26 @@ def get_progress_info():
 **Time savings**: 12+ hours → 25 minutes
     """
 
-def start_cpu_training():
-    """Start CPU training."""
+def start_monox_training():
+    """Start MonoX StyleGAN-V training with lukua/monox-dataset."""
     try:
-        subprocess.Popen(['python3', 'simple_gan_training.py'])
-        return "🚀 CPU training started! Check back in 15 minutes for next sample."
+        # Launch the MonoX training
+        subprocess.Popen(['python3', 'launch_training_in_space.py'])
+        return "🚀 MonoX training started! StyleGAN-V at 1024x1024 resolution with lukua/monox-dataset"
     except Exception as e:
-        return f"❌ Failed to start training: {e}"
+        return f"❌ Failed to start MonoX training: {e}"
 
-def start_gpu_training():
-    """Start GPU training if available."""
+def validate_setup():
+    """Validate training setup without authentication."""
     try:
-        import torch
-        if torch.cuda.is_available():
-            subprocess.Popen(['python3', 'gpu_gan_training.py'])
-            return "🚀 GPU training started! Much faster - check back in 30 seconds!"
+        result = subprocess.run(['python3', 'validate_training_ready.py'], 
+                              capture_output=True, text=True)
+        if result.returncode == 0:
+            return "✅ Training setup validated - ready for MonoX training!"
         else:
-            return "⚠️ No GPU detected. Upgrade hardware in Space settings first."
+            return f"❌ Setup validation failed: {result.stderr}"
     except Exception as e:
-        return f"❌ Failed to start GPU training: {e}"
+        return f"❌ Validation error: {e}"
 
 def get_latest_sample():
     """Get the latest generated sample."""
@@ -114,8 +115,8 @@ def create_interface():
                 )
                 
                 with gr.Row():
-                    cpu_btn = gr.Button("🖥️ Start CPU Training", variant="secondary")
-                    gpu_btn = gr.Button("🚀 Start GPU Training", variant="primary")
+                    validate_btn = gr.Button("🧪 Validate Setup", variant="secondary")
+                    monox_btn = gr.Button("🎨 Start MonoX Training", variant="primary")
                 
                 result_output = gr.Textbox(
                     label="Action Result",
@@ -141,13 +142,13 @@ def create_interface():
                 refresh_btn = gr.Button("🔄 Refresh", variant="secondary")
         
         # Event handlers
-        cpu_btn.click(
-            fn=start_cpu_training,
+        validate_btn.click(
+            fn=validate_setup,
             outputs=result_output
         )
         
-        gpu_btn.click(
-            fn=start_gpu_training,
+        monox_btn.click(
+            fn=start_monox_training,
             outputs=result_output
         )
         
