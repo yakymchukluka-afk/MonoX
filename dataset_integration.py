@@ -39,7 +39,7 @@ except ImportError as e:
 class MonoDatasetLoader:
     """HuggingFace dataset loader for MonoX training."""
     
-    def __init__(self, dataset_name: str = "mono-dataset", resolution: int = 1024):
+    def __init__(self, dataset_name: str = "lukua/monox-dataset", resolution: int = 1024):
         self.dataset_name = dataset_name
         self.resolution = resolution
         self.dataset = None
