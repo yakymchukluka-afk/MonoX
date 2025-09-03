@@ -1,10 +1,4 @@
-# FFS dataset configuration
-# Specific settings for FFS (Fantasy Face Stylized) dataset
+# @package _group_
 
-# @package _global_
-defaults:
-  - base
-
-path: ${oc.env:DATASET_DIR,""}
-resolution: 1024  
-c_dim: 0  # Unconditional generation for FFS
+name: ffs_${dataset.resolution}_unstable
+fps: 30

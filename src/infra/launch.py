@@ -1,150 +1,111 @@
+"""
+Run a __reproducible__ experiment on __allocated__ resources
+It submits a slurm job(s) with the given hyperparams which will then execute `slurm_job.py`
+This is the main entry-point
+"""
+
 import os
-import sys
 import subprocess
-import time
-import glob
-from pathlib import Path
-from typing import Optional, List
+import re
 
 import hydra
 from omegaconf import DictConfig, OmegaConf
+from pathlib import Path
 
+from src.infra.utils import create_project_dir, recursive_instantiate
 
-def _ensure_dir(path: str) -> None:
-    os.makedirs(path, exist_ok=True)
+#----------------------------------------------------------------------------
 
+HYDRA_ARGS = "hydra.run.dir=. hydra.output_subdir=null hydra/job_logging=disabled hydra/hydra_logging=disabled"
 
-def _find_latest_checkpoint(checkpoint_dir: str) -> Optional[str]:
-    if not checkpoint_dir or not os.path.isdir(checkpoint_dir):
-        return None
-    patterns: List[str] = ["*.pkl", "*.pt", "*.ckpt", "*.pth"]
-    candidates: List[str] = []
-    for pattern in patterns:
-        candidates.extend(glob.glob(os.path.join(checkpoint_dir, pattern)))
-    if not candidates:
-        return None
-    candidates.sort(key=lambda p: os.path.getmtime(p))
-    return candidates[-1]
+#----------------------------------------------------------------------------
 
+@hydra.main(config_path="../../configs", config_name="config.yaml")
+def main(cfg: DictConfig):
+    recursive_instantiate(cfg)
+    OmegaConf.set_struct(cfg, True)
+    cfg.env.project_path = str(cfg.env.project_path) # This is needed to evaluate ${hydra:runtime.cwd}
 
-def _ensure_styleganv_repo(repo_root: Path) -> Path:
-    """Ensure StyleGAN-V submodule is available and up to date."""
-    external_dir = repo_root / ".external"
-    external_dir.mkdir(parents=True, exist_ok=True)
-    sgv_dir = external_dir / "stylegan-v"
+    before_train_cmd = '\n'.join(cfg.env.before_train_commands)
+    before_train_cmd = before_train_cmd + '\n' if len(before_train_cmd) > 0 else ''
+    torch_extensions_dir = os.environ.get('TORCH_EXTENSIONS_DIR', cfg.env.torch_extensions_dir)
+    training_cmd = f'{before_train_cmd}TORCH_EXTENSIONS_DIR={torch_extensions_dir} cd {cfg.project_release_dir} && {cfg.env.python_bin} src/train.py {HYDRA_ARGS}'
+    quiet = cfg.get('quiet', False)
+    training_cmd_save_path = os.path.join(cfg.project_release_dir, 'training_cmd.sh')
+    cfg_save_path = os.path.join(cfg.project_release_dir, 'experiment_config.yaml')
 
-    if (sgv_dir / ".git").is_file() or (sgv_dir / ".git").is_dir():
-        # Ensure we're on a proper branch and try to update
-        try:
-            # Check if we're on a branch, if not checkout master
-            result = subprocess.run(["git", "-C", str(sgv_dir), "branch", "--show-current"], 
-                                   capture_output=True, text=True, check=False)
-            if not result.stdout.strip():
-                # We're in detached HEAD, checkout master
-                subprocess.run(["git", "-C", str(sgv_dir), "checkout", "master"], check=False)
-            
-            # Now try to pull from the correct remote
-            subprocess.run(["git", "-C", str(sgv_dir), "pull", "origin", "master"], check=False)
-        except Exception:
-            pass
-        return sgv_dir
+    if not quiet:
+        print('<=== TRAINING COMMAND START ===>')
+        print(training_cmd)
+        print('<=== TRAINING COMMAND END ===>')
 
-    # Clone if missing - use our fork with the fixes
-    repo_url = "https://github.com/yakymchukluka-afk/stylegan-v"
-    print(f"Cloning StyleGAN-V from {repo_url} into {sgv_dir}...")
-    subprocess.run(["git", "clone", repo_url, str(sgv_dir)], check=True)
-    # Ensure we're on master branch after cloning
-    subprocess.run(["git", "-C", str(sgv_dir), "checkout", "master"], check=False)
-    return sgv_dir
+    is_running_from_scratch = True
 
+    if cfg.training.resume == "latest" and os.path.isdir(cfg.project_release_dir) and os.path.isfile(training_cmd_save_path) and os.path.isfile(cfg_save_path):
+        is_running_from_scratch = False
+        if not quiet:
+            print("We are going to resume the training and the experiment already exists. " \
+                "That's why the provided config/training_cmd are discarded and the project dir is not created.")
 
-@hydra.main(config_path='../../configs', config_name='config', version_base=None)
-def main(cfg: DictConfig) -> None:
-    # Resolve repo root from this file location, not from Hydra's runtime cwd
-    repo_root = Path(__file__).resolve().parents[2]
+    if is_running_from_scratch and not cfg.print_only:
+        create_project_dir(
+            cfg.project_release_dir,
+            cfg.env.objects_to_copy,
+            cfg.env.symlinks_to_create,
+            quiet=quiet,
+            ignore_uncommited_changes=cfg.get('ignore_uncommited_changes', False),
+            overwrite=cfg.get('overwrite', False))
 
-    # Read config values with fallbacks to env vars if present
-    dataset_cfg = cfg.get("dataset")
-    if isinstance(dataset_cfg, DictConfig):
-        dataset_path = str(dataset_cfg.get("path") or os.environ.get("DATASET_DIR", ""))
+        with open(training_cmd_save_path, 'w') as f:
+            f.write(training_cmd + '\n')
+            if not quiet:
+                print(f'Saved training command in {training_cmd_save_path}')
+
+        with open(cfg_save_path, 'w') as f:
+            OmegaConf.save(config=cfg, f=f)
+            if not quiet:
+                print(f'Saved config in {cfg_save_path}')
+
+    if not cfg.print_only:
+        os.chdir(cfg.project_release_dir)
+
+    if cfg.slurm:
+        assert Path(cfg.dataset.path_for_slurm_job).exists()
+
+        curr_job_id = None
+
+        for i in range(cfg.job_sequence_length):
+            if i == 0:
+                deps_args_str = ''
+            else:
+                deps_args_str = f'--dependency=afterany:{curr_job_id}'
+
+            # Submitting the slurm job
+            qos_arg_str = f'--account {os.environ["PRIORITY_BOOST_ACC"]}' if cfg.use_qos else ''
+            output_file_arg_str = f'--output {cfg.project_release_dir}/slurm_{i}.log'
+            submit_job_cmd = f'sbatch {cfg.sbatch_args_str} {output_file_arg_str} {qos_arg_str} --export=ALL,{cfg.env_args_str} {deps_args_str} src/infra/slurm_job_proxy.sh'
+
+            if cfg.print_only:
+                print(submit_job_cmd)
+                curr_job_id = "DUMMY_JOB_ID"
+            else:
+                result = subprocess.run(submit_job_cmd, stdout=subprocess.PIPE, shell=True)
+                output_str = result.stdout.decode("utf-8").strip("\n") # It has a format of "Submitted batch job 17033559"
+                if not quiet or i == 0:
+                    print(output_str)
+                curr_job_id = re.findall(r"^Submitted\ batch\ job\ \d{5,8}$", output_str)
+                assert len(curr_job_id) == 1, f"Bad output: `{output_str}`"
+                curr_job_id = int(curr_job_id[0][len('Submitted batch job '):])
     else:
-        dataset_path = os.environ.get("DATASET_DIR", "")
-    
-    # Handle resolution similarly to avoid the same error
-    if isinstance(dataset_cfg, DictConfig):
-        resolution = int(dataset_cfg.get("resolution", 1024))
-    else:
-        resolution = 1024
+        assert cfg.job_sequence_length == 1, "You can use a job sequence only when running via slurm."
+        if cfg.print_only:
+            print(training_cmd)
+        else:
+            os.system(training_cmd)
 
-    total_kimg = int(cfg.get("training", {}).get("total_kimg", 3000))
-    snapshot_kimg = int(cfg.get("training", {}).get("snapshot_kimg", 250))
-    num_gpus = int(cfg.get("training", {}).get("num_gpus", 1))
-
-    logs_dir = str(cfg.get("training", {}).get("log_dir") or os.environ.get("LOGS_DIR", "logs"))
-    previews_dir = str(cfg.get("training", {}).get("preview_dir") or os.environ.get("PREVIEWS_DIR", "previews"))
-    ckpt_dir = str(cfg.get("training", {}).get("checkpoint_dir") or os.environ.get("CKPT_DIR", "checkpoints"))
-
-    truncation_psi = float(cfg.get("sampling", {}).get("truncation_psi", 1.0))
-
-    preview_every_kimg = int(cfg.get("visualizer", {}).get("save_every_kimg", 50))
-
-    resume_cfg = str(cfg.get("training", {}).get("resume") or "").strip()
-
-    # Ensure output directories
-    for d in [logs_dir, previews_dir, ckpt_dir]:
-        _ensure_dir(d)
-
-    # Determine resume file: config or auto-detect latest
-    resume_path = resume_cfg if resume_cfg else _find_latest_checkpoint(ckpt_dir)
-    if resume_path:
-        print(f"Will resume from: {resume_path}")
-
-    if not dataset_path or not os.path.exists(dataset_path):
-        print("ERROR: dataset.path is not set or does not exist.")
-        print("Set it in configs/config.yaml or via env var DATASET_DIR or Hydra override: dataset.path=/path/to/data")
-        sys.exit(2)
-
-    # Ensure StyleGAN-V is available locally and get its launcher path
-    sgv_dir = _ensure_styleganv_repo(repo_root)
-    sgv_launcher_module = "src.infra.launch"
-
-    # Build Hydra overrides for StyleGAN-V
-    cmd = [
-        sys.executable, "-m", sgv_launcher_module,
-        f"hydra.run.dir={logs_dir}",
-        "exp_suffix=monox",
-        f"dataset.path={dataset_path}",
-        f"dataset.resolution={resolution}",
-        f"training.total_kimg={total_kimg}",
-        f"training.snapshot_kimg={snapshot_kimg}",
-        f"visualizer.save_every_kimg={preview_every_kimg}",
-        f"visualizer.output_dir={previews_dir}",
-        f"sampling.truncation_psi={truncation_psi}",
-        f"num_gpus={num_gpus}",
-    ]
-    if resume_path:
-        cmd.append(f"training.resume={resume_path}")
-
-    print("Launching StyleGAN-V with command:\n" + " ".join(cmd))
-
-    # Stream logs to file in Drive
-    log_file = os.path.join(logs_dir, "train.log")
-    env = os.environ.copy()
-    env["PYTHONUNBUFFERED"] = "1"
-    # Ensure src imports work when running as module
-    existing_pp = env.get("PYTHONPATH", "")
-    env["PYTHONPATH"] = (str(sgv_dir) + (":" + existing_pp if existing_pp else ""))
-
-    with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env, cwd=str(sgv_dir)) as proc:
-        with open(log_file, "a", buffering=1) as out:
-            for line in proc.stdout:  # type: ignore[attr-defined]
-                sys.stdout.write(line)
-                out.write(line)
-        ret = proc.wait()
-    print(f"Training process exited with code {ret}")
-    if ret != 0:
-        sys.exit(ret)
-
+#----------------------------------------------------------------------------
 
 if __name__ == "__main__":
     main()
+
+#----------------------------------------------------------------------------

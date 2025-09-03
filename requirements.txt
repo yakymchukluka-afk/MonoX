@@ -1,2 +1,16 @@
 fastapi
 uvicorn[standard]
+torch>=1.7.1
+torchvision>=0.8.2
+hydra-core==1.0.7
+click==7.1.2
+scipy
+ninja==1.10.0
+tensorboard==2.4.1
+tqdm
+gitpython
+matplotlib
+joblib==1.1.0
+opencv-python-headless
+Pillow
+numpy
