@@ -1,0 +1,47 @@
+# MonoX Dataset Configuration - STRICT MODE
+# ==========================================
+# ENFORCES: lukua/monox-dataset (private)
+# ==========================================
+
+# STRICT: Only lukua/monox-dataset allowed
+name: "lukua/monox-dataset"
+path: "lukua/monox-dataset"
+resolution: 1024
+c_dim: 0  # Unconditional generation
+
+# Private dataset settings
+private: true
+use_auth_token: true
+streaming: true  # Memory efficient for large datasets
+
+# Validation settings (STRICT)
+validation:
+  required: true
+  min_samples: 100  # Minimum samples required
+  max_samples: null  # No maximum limit
+  image_formats: ["jpg", "jpeg", "png"]
+  
+# Data loading settings
+loading:
+  batch_size: 4  # Optimized for 1024x1024
+  num_workers: 4
+  pin_memory: true
+  drop_last: true
+
+# Preprocessing pipeline
+preprocessing:
+  resize_method: "lanczos"
+  center_crop: true
+  normalize: true
+  augmentation: false  # Disable for consistency
+
+# Error handling (STRICT)
+error_handling:
+  on_connection_fail: "abort"  # Abort training if connection fails
+  on_validation_fail: "abort"  # Abort if validation fails
+  retry_attempts: 3
+  retry_delay: 5  # seconds
+
+# STRICT MODE: No fallback datasets
+fallback_datasets: null
+allow_local_cache: false  # Force streaming from HF Hub

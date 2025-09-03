@@ -185,13 +185,16 @@ class MonoDatasetLoader:
 
 
 def test_dataset_connection():
-    """Test the dataset connection and validation."""
-    print("🧪 Testing MonoX Dataset Connection")
-    print("=" * 50)
+    """Test the dataset connection and validation - STRICT MODE."""
+    print("🧪 Testing MonoX Dataset Connection (STRICT MODE)")
+    print("=" * 60)
+    print("⚠️  REQUIREMENT: Must connect to 'lukua/monox-dataset'")
+    print("⚠️  This is a PRIVATE dataset - authentication required!")
+    print("=" * 60)
     
     loader = MonoDatasetLoader(resolution=1024)
     
-    # Test connection
+    # Test connection - STRICT: Must work or fail completely
     if loader.connect():
         print("✅ Dataset connection successful")
         
@@ -201,6 +204,7 @@ def test_dataset_connection():
         
         if validation["valid"]:
             print("✅ Dataset validation passed")
+            print("🎯 MonoX training can proceed with authenticated dataset access")
             
             # Create sample dataset directory
             try:
@@ -212,28 +216,46 @@ def test_dataset_connection():
                 return None
         else:
             print(f"❌ Dataset validation failed: {validation['error']}")
+            print("🚫 TRAINING BLOCKED: Dataset validation required")
             return None
     else:
         print("❌ Dataset connection failed")
+        print("🚫 TRAINING BLOCKED: Cannot proceed without 'lukua/monox-dataset'")
+        print("")
+        print("🔧 REQUIRED SETUP:")
+        print("   1. Authenticate with HuggingFace:")
+        print("      - Set HF_TOKEN environment variable, OR")
+        print("      - Run: huggingface-cli login")
+        print("   2. Ensure you have access to 'lukua/monox-dataset'")
+        print("   3. Re-run this script to validate connection")
         return None
 
 
 def main():
-    """Main function for testing dataset integration."""
+    """Main function for testing dataset integration - STRICT MODE."""
     try:
         result = test_dataset_connection()
         if result:
             print(f"\n🎉 MonoX dataset integration ready!")
             print(f"📁 Dataset directory: {result}")
             print(f"🚀 Ready for StyleGAN-V training at 1024x1024 resolution")
+            print(f"✅ AUTHENTICATION: Successfully connected to private dataset")
         else:
-            print(f"\n❌ Dataset integration failed")
+            print(f"\n🚫 DATASET CONNECTION FAILED")
+            print(f"❌ MonoX training is BLOCKED until 'lukua/monox-dataset' is accessible")
+            print(f"🔒 This is a REQUIRED private dataset - no fallbacks allowed")
+            print(f"\n💡 Next steps:")
+            print(f"   1. Verify HuggingFace authentication")
+            print(f"   2. Confirm access to 'lukua/monox-dataset'")
+            print(f"   3. Re-run this validation")
             sys.exit(1)
             
     except KeyboardInterrupt:
         print("\n⏹️  Test interrupted by user")
+        sys.exit(1)
     except Exception as e:
-        print(f"\n💥 Unexpected error: {e}")
+        print(f"\n💥 Unexpected error during dataset validation: {e}")
+        print(f"🚫 TRAINING BLOCKED: Dataset connection is mandatory")
         sys.exit(1)
 
 
