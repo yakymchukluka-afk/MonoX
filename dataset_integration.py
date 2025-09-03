@@ -53,13 +53,17 @@ class MonoDatasetLoader:
             transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])  # [-1, 1] range
         ])
     
-    def connect(self) -> bool:
+    def connect(self, use_auth_token: bool = True) -> bool:
         """Connect to the HuggingFace dataset."""
         try:
             print(f"🔗 Connecting to HuggingFace dataset: {self.dataset_name}")
             
-            # Try to load the dataset
-            self.dataset = load_dataset(self.dataset_name, streaming=True)
+            # Try to load the dataset with authentication
+            if use_auth_token:
+                print("🔑 Using authentication token for private dataset access...")
+                self.dataset = load_dataset(self.dataset_name, streaming=True, use_auth_token=True)
+            else:
+                self.dataset = load_dataset(self.dataset_name, streaming=True)
             
             print(f"✅ Successfully connected to {self.dataset_name}")
             return True
@@ -67,19 +71,14 @@ class MonoDatasetLoader:
         except Exception as e:
             print(f"❌ Failed to connect to dataset {self.dataset_name}: {e}")
             
-            # Check if dataset exists
-            try:
-                api = HfApi()
-                datasets = api.list_datasets(search=self.dataset_name)
-                if not any(d.id == self.dataset_name for d in datasets):
-                    print(f"📝 Dataset '{self.dataset_name}' not found. Available options:")
-                    mono_datasets = [d.id for d in datasets if 'mono' in d.id.lower()]
-                    for ds in mono_datasets[:5]:  # Show first 5 matches
-                        print(f"   - {ds}")
-                else:
-                    print(f"📝 Dataset exists but may be private or have access issues")
-            except:
-                pass
+            if "authentication" in str(e).lower() or "private" in str(e).lower():
+                print(f"🔒 Dataset appears to be private. Make sure you're authenticated with HuggingFace CLI:")
+                print(f"   Run: huggingface-cli login")
+                print(f"   Or set HF_TOKEN environment variable")
+            elif "not found" in str(e).lower():
+                print(f"📝 Dataset '{self.dataset_name}' not found or access denied")
+            else:
+                print(f"🔧 Connection error: {str(e)}")
                 
             return False
     
