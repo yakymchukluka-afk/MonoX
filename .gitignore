@@ -13,3 +13,13 @@ __pycache__/
 .DS_Store
 .vscode/
 .idea/
+
+# Security - NEVER commit these files
+.env
+*.key
+*.pem
+*.p12
+*.pfx
+secrets/
+.secrets/
+*.token

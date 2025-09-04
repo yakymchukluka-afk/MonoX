@@ -23,7 +23,7 @@ class MonoXHybridAuth:
         self.ssh_available = False
         self.token_available = False
         self.auth_method = None
-        self.hf_token = "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"
+        self.hf_token = os.environ.get('HF_TOKEN')
         self.ssh_key_fingerprint = "SHA256:UG7cby7CljmfZn9MJPqsfMy1VfMDzTDBMmZUIJbYDNQ"
         
     def setup_authentication(self):

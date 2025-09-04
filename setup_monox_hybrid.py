@@ -114,12 +114,14 @@ def setup_hf_token():
     """Setup HF token authentication."""
     print("\\n🎫 Setting up HF Token Authentication...")
     
-    # The token you provided
-    hf_token = "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"
+    # Get token from environment variable
+    hf_token = os.environ.get('HF_TOKEN')
     
     try:
-        # Set token in environment
-        os.environ['HF_TOKEN'] = hf_token
+        if not hf_token:
+            print("❌ HF_TOKEN not found in environment variables")
+            print("📝 Add HF_TOKEN as a secret in your HF Space settings")
+            return False
         
         # Save token to file
         token_file = Path('.huggingface/token')
