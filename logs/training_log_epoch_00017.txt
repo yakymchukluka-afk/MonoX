@@ -1,1 +1,0 @@
-Epoch 18/50\nGenerator Loss: 0.0000\nDiscriminator Loss: 100.0000\nTime: 16.3s\nDevice: cpu\nGPU: CPU\n
