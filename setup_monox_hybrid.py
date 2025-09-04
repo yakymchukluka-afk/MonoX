@@ -114,13 +114,15 @@ def setup_hf_token():
     """Setup HF token authentication."""
     print("\\n🎫 Setting up HF Token Authentication...")
     
-    # Get token from environment variable
-    hf_token = os.environ.get('HF_TOKEN')
+    # Get token from HF Space secret
+    hf_token = os.environ.get('token')  # HF Space secret name
     
     try:
         if not hf_token:
-            print("❌ HF_TOKEN not found in environment variables")
-            print("📝 Add HF_TOKEN as a secret in your HF Space settings")
+            print("❌ 'token' secret not found in HF Space")
+            print("📝 Add 'token' secret in your HF Space settings")
+            print("   Secret name: token")
+            print("   Secret value: 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")
             return False
         
         # Save token to file

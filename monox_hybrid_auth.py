@@ -23,7 +23,7 @@ class MonoXHybridAuth:
         self.ssh_available = False
         self.token_available = False
         self.auth_method = None
-        self.hf_token = os.environ.get('HF_TOKEN')
+        self.hf_token = os.environ.get('token')  # HF Space secret name
         self.ssh_key_fingerprint = "SHA256:UG7cby7CljmfZn9MJPqsfMy1VfMDzTDBMmZUIJbYDNQ"
         
     def setup_authentication(self):
@@ -164,12 +164,12 @@ class MonoXHybridAuth:
             else:
                 repo_path = file_name
             
-            # Upload with token
+            # Upload with token from HF Space secret
             upload_file(
                 path_or_fileobj=file_path,
                 path_in_repo=repo_path,
                 repo_id=repo_id,
-                token=self.hf_token,
+                token=self.hf_token,  # Uses 'token' secret from HF Space
                 repo_type="model"
             )
             

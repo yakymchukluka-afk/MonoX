@@ -12,15 +12,17 @@ def check_environment():
     print("🔍 Checking Environment Configuration")
     print("=" * 40)
     
-    # Check for HF token
-    hf_token = os.environ.get('HF_TOKEN')
+    # Check for HF token from Space secret
+    hf_token = os.environ.get('token')  # HF Space secret name
     if hf_token:
-        print("✅ HF_TOKEN found in environment")
+        print("✅ 'token' secret found in HF Space")
         print(f"   Token: {hf_token[:8]}...{hf_token[-4:]}")
         return True
     else:
-        print("❌ HF_TOKEN not found in environment")
-        print("📝 Please add HF_TOKEN to your HF Space secrets")
+        print("❌ 'token' secret not found in HF Space")
+        print("📝 Please add 'token' secret to your HF Space settings")
+        print("   Secret name: token")
+        print("   Secret value: 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")
         return False
 
 def test_authentication():
