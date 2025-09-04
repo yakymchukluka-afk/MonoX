@@ -12,11 +12,17 @@ def update_token_securely():
     print("🔒 Updating Token Securely")
     print("=" * 30)
     
-    # New token (from your message)
-    new_token = "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"
+    # Get token from environment variable or user input
+    new_token = os.environ.get('HF_TOKEN')
     
-    print("📝 New token received: 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")
-    print("⚠️  This token is only shown here for setup - it will be stored securely")
+    if not new_token:
+        print("❌ HF_TOKEN not found in environment variables")
+        print("📝 Please set HF_TOKEN environment variable or add to Space secrets")
+        print("🔒 NEVER put tokens directly in code!")
+        return False
+    
+    print("✅ Using token from environment variable")
+    print("⚠️  Token is secure - not exposed in code")
     
     # Set environment variable
     os.environ['HF_TOKEN'] = new_token
