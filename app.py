@@ -1,193 +1,360 @@
 #!/usr/bin/env python3
 """
-MonoX Training Interface - Minimal Version
-Designed to work even with HF Spaces infrastructure issues
+MonoX L4 GPU Training with HF Integration
+Complete training script with authentication, checkpoint resuming, and optimized saves
 """
 
-import gradio as gr
 import os
-import subprocess
 import time
+import logging
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torchvision.utils import save_image
 from pathlib import Path
+from huggingface_hub import HfApi, login, upload_file, list_repo_files
+import subprocess
 
-def setup_environment():
-    """Minimal environment setup."""
-    # Create directories
-    Path("previews").mkdir(exist_ok=True)
-    Path("checkpoints").mkdir(exist_ok=True)
-    Path("logs").mkdir(exist_ok=True)
-    
-    return "✅ Environment ready"
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(levelname)s:%(name)s:%(message)s')
+logger = logging.getLogger(__name__)
 
-def check_training_status():
-    """Check if training is running."""
+print("=" * 50)
+print(f"===== Application Startup at {time.strftime('%Y-%m-%d %H:%M:%S')} =====")
+print("=" * 50)
+
+# L4 Generator for 1024px
+class L4Generator1024(nn.Module):
+    def __init__(self, noise_dim=512):
+        super().__init__()
+        self.noise_dim = noise_dim
+        
+        # Progressive upsampling layers
+        self.fc = nn.Linear(noise_dim, 4*4*1024)
+        self.conv1 = nn.ConvTranspose2d(1024, 512, 4, 2, 1)  # 4x4 -> 8x8
+        self.conv2 = nn.ConvTranspose2d(512, 256, 4, 2, 1)   # 8x8 -> 16x16
+        self.conv3 = nn.ConvTranspose2d(256, 128, 4, 2, 1)   # 16x16 -> 32x32
+        self.conv4 = nn.ConvTranspose2d(128, 64, 4, 2, 1)    # 32x32 -> 64x64
+        self.conv5 = nn.ConvTranspose2d(64, 32, 4, 2, 1)     # 64x64 -> 128x128
+        self.conv6 = nn.ConvTranspose2d(32, 16, 4, 2, 1)     # 128x128 -> 256x256
+        self.conv7 = nn.ConvTranspose2d(16, 8, 4, 2, 1)      # 256x256 -> 512x512
+        self.conv8 = nn.ConvTranspose2d(8, 3, 4, 2, 1)       # 512x512 -> 1024x1024
+        
+        self.bn1 = nn.BatchNorm2d(1024)
+        self.bn2 = nn.BatchNorm2d(512)
+        self.bn3 = nn.BatchNorm2d(256)
+        self.bn4 = nn.BatchNorm2d(128)
+        self.bn5 = nn.BatchNorm2d(64)
+        self.bn6 = nn.BatchNorm2d(32)
+        self.bn7 = nn.BatchNorm2d(16)
+        self.bn8 = nn.BatchNorm2d(8)
+        
+        self.relu = nn.ReLU(True)
+        self.tanh = nn.Tanh()
+        
+    def forward(self, noise):
+        x = self.fc(noise)
+        x = x.view(-1, 1024, 4, 4)
+        
+        x = self.relu(self.bn1(x))
+        x = self.conv1(x)
+        
+        x = self.relu(self.bn2(x))
+        x = self.conv2(x)
+        
+        x = self.relu(self.bn3(x))
+        x = self.conv3(x)
+        
+        x = self.relu(self.bn4(x))
+        x = self.conv4(x)
+        
+        x = self.relu(self.bn5(x))
+        x = self.conv5(x)
+        
+        x = self.relu(self.bn6(x))
+        x = self.conv6(x)
+        
+        x = self.relu(self.bn7(x))
+        x = self.conv7(x)
+        
+        x = self.relu(self.bn8(x))
+        x = self.conv8(x)
+        
+        return self.tanh(x)
+
+def setup_hf_auth():
+    """Setup HF authentication using Space secret."""
     try:
-        result = subprocess.run(['pgrep', '-f', 'gan_training'], capture_output=True, text=True)
-        if result.stdout.strip():
-            return "🟢 Training is RUNNING"
-        else:
-            return "🔴 Training is STOPPED"
-    except:
-        return "❓ Status unknown"
-
-def get_progress_info():
-    """Get current progress information."""
-    preview_dir = Path("previews")
-    checkpoint_dir = Path("checkpoints")
-    
-    previews = len(list(preview_dir.glob("*.png"))) if preview_dir.exists() else 0
-    checkpoints = len(list(checkpoint_dir.glob("*.pth"))) if checkpoint_dir.exists() else 0
-    
-    return f"""
-📊 **MonoX Training Progress**
-
-**Status**: {check_training_status()}
-**Previews**: {previews} samples generated
-**Checkpoints**: {checkpoints} saved
-**Progress**: {previews}/50 epochs ({previews*2}%)
-
-**Hardware Options**:
-- CPU: ~15 min/epoch (current)
-- GPU T4: ~30 sec/epoch (30x faster!)
-- GPU A10G: ~15 sec/epoch (60x faster!)
-
-**Cost for GPU T4**: Only $0.25 for complete training!
-**Time savings**: 12+ hours → 25 minutes
-    """
-
-def start_cpu_training():
-    """Start CPU training."""
-    try:
-        subprocess.Popen(['python3', 'simple_gan_training.py'])
-        return "🚀 CPU training started! Check back in 15 minutes for next sample."
+        hf_token = os.environ.get('token')  # HF Space secret name
+        if not hf_token:
+            logger.warning("❌ No HF token found in environment")
+            return False
+        
+        login(token=hf_token)
+        api = HfApi()
+        user_info = api.whoami()
+        logger.info(f"✅ Already authenticated as: {user_info['name']}")
+        return True
     except Exception as e:
-        return f"❌ Failed to start training: {e}"
+        logger.error(f"❌ HF authentication failed: {e}")
+        return False
 
-def start_gpu_training():
-    """Start GPU training if available."""
+def create_hf_model_repo():
+    """Create or verify HF model repository exists."""
     try:
-        import torch
-        if torch.cuda.is_available():
-            subprocess.Popen(['python3', 'gpu_gan_training.py'])
-            return "🚀 GPU training started! Much faster - check back in 30 seconds!"
-        else:
-            return "⚠️ No GPU detected. Upgrade hardware in Space settings first."
+        api = HfApi()
+        repo_id = "lukua/monox-model"
+        
+        # Check if repo exists
+        try:
+            api.repo_info(repo_id, repo_type="model")
+            logger.info("✅ HF model repository exists")
+            return True
+        except:
+            # Create repo if it doesn't exist
+            api.create_repo(repo_id, repo_type="model", private=True)
+            logger.info(f"✅ Created HF model repository: {repo_id}")
+            return True
     except Exception as e:
-        return f"❌ Failed to start GPU training: {e}"
+        logger.error(f"❌ Failed to create/access repository: {e}")
+        return False
 
-def get_latest_sample():
-    """Get the latest generated sample."""
-    preview_dir = Path("previews")
-    if not preview_dir.exists():
-        return None, "No samples generated yet"
+def find_latest_checkpoint():
+    """Find the latest checkpoint from local and HF, return the absolute latest."""
+    local_ckpts = []
+    hf_ckpts = []
     
-    samples = sorted(preview_dir.glob("samples_epoch_*.png"), key=lambda x: x.stat().st_mtime)
-    if not samples:
-        return None, "No samples found"
+    # Check local checkpoints
+    local_dir = Path("checkpoints")
+    if local_dir.exists():
+        for pattern in ["l4_generator_epoch_*.pth", "monox_checkpoint_epoch_*.pth"]:
+            for ckpt in local_dir.glob(pattern):
+                try:
+                    epoch = int(ckpt.stem.split('_')[-1])
+                    local_ckpts.append((epoch, str(ckpt)))
+                except:
+                    continue
     
-    latest = samples[-1]
-    epoch_num = int(latest.stem.split('_')[-1])
-    size_mb = latest.stat().st_size / (1024*1024)
+    # Check HF checkpoints
+    try:
+        api = HfApi()
+        files = list_repo_files("lukua/monox-model", repo_type="model")
+        for file in files:
+            if file.startswith("checkpoints/") and file.endswith(".pth"):
+                try:
+                    if "l4_generator_epoch_" in file:
+                        epoch = int(file.split("l4_generator_epoch_")[1].split(".")[0])
+                    elif "monox_checkpoint_epoch_" in file:
+                        epoch = int(file.split("monox_checkpoint_epoch_")[1].split(".")[0])
+                    else:
+                        continue
+                    hf_ckpts.append((epoch, file))
+                except:
+                    continue
+    except Exception as e:
+        logger.warning(f"⚠️ Could not check HF checkpoints: {e}")
     
-    return str(latest), f"Epoch {epoch_num} - {size_mb:.1f}MB"
+    # Find absolute latest
+    all_ckpts = local_ckpts + hf_ckpts
+    if not all_ckpts:
+        return None, 0
+    
+    latest_epoch, latest_path = max(all_ckpts, key=lambda x: x[0])
+    
+    # If it's an HF checkpoint, download it
+    if latest_path.startswith("checkpoints/"):
+        try:
+            from huggingface_hub import hf_hub_download
+            local_path = hf_hub_download(
+                repo_id="lukua/monox-model",
+                filename=latest_path,
+                local_dir=".",
+                token=os.environ.get('token')
+            )
+            logger.info(f"📥 Downloaded HF checkpoint: {Path(latest_path).name} (epoch {latest_epoch})")
+            return local_path, latest_epoch
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to download HF checkpoint: {e}")
+            return None, 0
+    
+    logger.info(f"📥 Found newer HF checkpoint: {latest_path} (epoch {latest_epoch})")
+    return latest_path, latest_epoch
 
-# Create Gradio interface
-def create_interface():
-    """Create the Gradio interface."""
-    
-    with gr.Blocks(title="MonoX Training", theme=gr.themes.Soft()) as interface:
-        gr.Markdown("# 🎨 MonoX StyleGAN-V Training")
-        gr.Markdown("*Generate monotype-inspired artwork using AI*")
-        
-        with gr.Row():
-            with gr.Column():
-                gr.Markdown("## 📊 Status & Control")
-                
-                status_output = gr.Textbox(
-                    label="Training Status",
-                    value=check_training_status(),
-                    interactive=False
-                )
-                
-                progress_output = gr.Markdown(
-                    value=get_progress_info()
-                )
-                
-                with gr.Row():
-                    cpu_btn = gr.Button("🖥️ Start CPU Training", variant="secondary")
-                    gpu_btn = gr.Button("🚀 Start GPU Training", variant="primary")
-                
-                result_output = gr.Textbox(
-                    label="Action Result",
-                    interactive=False
-                )
-            
-            with gr.Column():
-                gr.Markdown("## 🖼️ Latest Sample")
-                
-                sample_path_init, sample_desc_init = get_latest_sample()
-                sample_image = gr.Image(
-                    label="Generated Artwork",
-                    type="filepath",
-                    value=sample_path_init
-                )
-                
-                sample_info = gr.Textbox(
-                    label="Sample Info",
-                    interactive=False,
-                    value=sample_desc_init
-                )
-                
-                refresh_btn = gr.Button("🔄 Refresh", variant="secondary")
-        
-        # Event handlers
-        cpu_btn.click(
-            fn=start_cpu_training,
-            outputs=result_output
+def load_checkpoint(generator, optimizer, scaler, ckpt_path):
+    """Load checkpoint and return epoch number."""
+    try:
+        checkpoint = torch.load(ckpt_path, map_location='cpu')
+        generator.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        scaler.load_state_dict(checkpoint['scaler_state_dict'])
+        epoch = checkpoint['epoch']
+        loss = checkpoint['loss']
+        logger.info(f"✅ Loaded checkpoint epoch={epoch}, loss={loss:.6f}")
+        return epoch
+    except Exception as e:
+        logger.error(f"❌ Failed to load checkpoint: {e}")
+        return 0
+
+def upload_sample_to_hf(sample_path):
+    """Upload sample to HF model repository."""
+    try:
+        upload_file(
+            path_or_fileobj=sample_path,
+            path_in_repo=f"samples/{Path(sample_path).name}",
+            repo_id="lukua/monox-model",
+            token=os.environ.get('token'),
+            repo_type="model"
         )
-        
-        gpu_btn.click(
-            fn=start_gpu_training,
-            outputs=result_output
+    except Exception as e:
+        raise Exception(f"Sample upload failed: {e}")
+
+def upload_checkpoint_to_hf(ckpt_path):
+    """Upload checkpoint to HF model repository."""
+    try:
+        upload_file(
+            path_or_fileobj=ckpt_path,
+            path_in_repo=f"checkpoints/{Path(ckpt_path).name}",
+            repo_id="lukua/monox-model",
+            token=os.environ.get('token'),
+            repo_type="model"
         )
-        
-        def refresh_all():
-            status = check_training_status()
-            progress = get_progress_info()
-            sample_path, sample_desc = get_latest_sample()
-            return status, progress, sample_path, sample_desc
-        
-        refresh_btn.click(
-            fn=refresh_all,
-            outputs=[status_output, progress_output, sample_image, sample_info]
+    except Exception as e:
+        raise Exception(f"Checkpoint upload failed: {e}")
+
+def upload_log_to_hf(log_path):
+    """Upload log to HF model repository."""
+    try:
+        upload_file(
+            path_or_fileobj=log_path,
+            path_in_repo=f"logs/{Path(log_path).name}",
+            repo_id="lukua/monox-model",
+            token=os.environ.get('token'),
+            repo_type="model"
         )
-        
-        # Auto-refresh every 30 seconds (Gradio 4+ API)
-        auto_timer = gr.Timer(30.0)
-        auto_timer.tick(
-            fn=refresh_all,
-            outputs=[status_output, progress_output, sample_image, sample_info]
-        )
-    
-    return interface
+    except Exception as e:
+        raise Exception(f"Log upload failed: {e}")
 
 def main():
-    """Main application."""
-    print("🎨 MonoX Training Interface Starting...")
+    """Main training function."""
+    logger.info("🎯 MonoX L4 GPU Training Auto-Starter (Resume Enabled)")
+    logger.info("=" * 50)
     
-    # Setup
-    setup_result = setup_environment()
-    print(setup_result)
+    # GPU Detection
+    if torch.cuda.is_available():
+        gpu_name = torch.cuda.get_device_name(0)
+        gpu_memory = torch.cuda.get_device_properties(0).total_memory / 1024**3
+        cuda_version = torch.version.cuda
+        logger.info(f"🚀 GPU Detected: {gpu_name}")
+        logger.info(f"💾 GPU Memory: {gpu_memory:.1f}GB")
+        logger.info(f"⚡ CUDA Version: {cuda_version}")
+    else:
+        logger.warning("⚠️ No GPU detected - training will be very slow")
     
-    # Launch interface
-    demo.launch(
-        server_name="0.0.0.0",
-        server_port=7860,
-        share=False
-    )
-
-# Expose Gradio app for Hugging Face Spaces
-demo = create_interface()
+    # ---------- Training ----------
+    def start_l4_1024px_training():
+        logger.info("🎯 L4 1024px Training Starting...")
+        
+        Path("samples").mkdir(exist_ok=True)
+        Path("checkpoints").mkdir(exist_ok=True)
+        Path("logs").mkdir(exist_ok=True)
+        
+        setup_hf_auth()
+        create_hf_model_repo()
+        
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        generator = L4Generator1024().to(device)
+        optimizer = optim.Adam(generator.parameters(), lr=2e-4, betas=(0.5, 0.999))
+        scaler = torch.amp.GradScaler('cuda', enabled=(device.type == "cuda"))
+        
+        # Resume
+        ckpt_path, start_epoch = find_latest_checkpoint()
+        if ckpt_path:
+            start_epoch = load_checkpoint(generator, optimizer, scaler, ckpt_path)
+            logger.info(f"🚀 Resuming training from epoch {start_epoch}")
+        else:
+            logger.info("🆕 Starting fresh training from epoch 0")
+            start_epoch = 0
+        
+        logger.info("🚀 Starting L4 1024px training loop...")
+        max_epochs = 50_000
+        sample_every = 100_000      # 10x less frequent
+        ckpt_every = 1_000_000      # 10x less frequent  
+        log_every = 50_000          # 10x less frequent
+        
+        # FIXED: Start from start_epoch + 1 to avoid re-saving the same epoch
+        for epoch in range(start_epoch + 1, max_epochs):
+            batch_size = 2
+            noise = torch.randn(batch_size, 512, device=device)
+            
+            with torch.amp.autocast('cuda', enabled=(device.type == "cuda")):
+                fake_images = generator(noise)
+                loss = -torch.mean(torch.std(fake_images.view(fake_images.size(0), -1), dim=1))
+                loss += 0.01 * torch.mean(torch.abs(fake_images))
+            
+            optimizer.zero_grad(set_to_none=True)
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+            
+            # Log progress every 10,000 epochs (more frequent for monitoring)
+            if epoch % 10_000 == 0:
+                mem_gb = (torch.cuda.memory_allocated() / 1024**3) if device.type == "cuda" else 0.0
+                logger.info(f"🎨 L4 Epoch {epoch}, Loss: {loss.item():.4f}, GPU Mem: {mem_gb:.1f}GB")
+            
+            # Save sample every 100,000 epochs (much less frequent)
+            if epoch % sample_every == 0:
+                sample_path = f"samples/l4_1024px_epoch_{epoch:05d}.png"
+                save_image(fake_images, sample_path, normalize=True, nrow=1)
+                logger.info(f"💾 Saved 1024px sample: {sample_path}")
+                try:
+                    upload_sample_to_hf(sample_path)
+                    logger.info("📤 Sample uploaded to HF")
+                except Exception as e:
+                    logger.warning(f"⚠️ Sample upload failed: {e}")
+            
+            # Save checkpoint every 1,000,000 epochs (much less frequent)
+            if epoch % ckpt_every == 0 and epoch > 0:
+                ckpt = f"checkpoints/l4_generator_epoch_{epoch:05d}.pth"
+                torch.save({
+                    "epoch": epoch,
+                    "model_state_dict": generator.state_dict(),
+                    "optimizer_state_dict": optimizer.state_dict(),
+                    "loss": float(loss.item()),
+                    "scaler_state_dict": scaler.state_dict(),
+                }, ckpt)
+                logger.info(f"💾 Saved checkpoint: {ckpt}")
+                try:
+                    upload_checkpoint_to_hf(ckpt)
+                    logger.info("📤 Checkpoint uploaded to HF")
+                except Exception as e:
+                    logger.warning(f"⚠️ Checkpoint upload failed: {e}")
+            
+            # Save log every 50,000 epochs (much less frequent)
+            if epoch % log_every == 0:
+                log_path = f"logs/training_log_epoch_{epoch:05d}.txt"
+                content = f"""L4 GPU Training Log
+Epoch: {epoch}
+Loss: {loss.item():.6f}
+GPU Memory: {(torch.cuda.memory_allocated()/1024**3 if device.type=='cuda' else 0):.2f}GB
+Model: L4Generator1024
+Resolution: 1024x1024
+Batch Size: 2
+Mixed Precision: {'Enabled' if device.type=='cuda' else 'Disabled'}
+Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}
+"""
+                Path(log_path).write_text(content)
+                logger.info(f"📝 Saved training log: {log_path}")
+                try:
+                    upload_log_to_hf(log_path)
+                    logger.info("📤 Log uploaded to HF")
+                except Exception as e:
+                    logger.warning(f"⚠️ Log upload failed: {e}")
+            
+            if epoch % 100 == 0:
+                time.sleep(0.01)
+    
+    # Start training
+    start_l4_1024px_training()
 
 if __name__ == "__main__":
     main()
