@@ -1,79 +1,107 @@
----
-title: MonoX StyleGAN-V Training
-emoji: 🎨
-colorFrom: purple
-colorTo: pink
-sdk: gradio
-sdk_version: 4.44.0
-app_file: app.py
-pinned: false
-license: mit
----
+# MonoX StyleGAN-V Training
 
-# MonoX StyleGAN-V Training Interface
+**Complete StyleGAN-V training implementation with multiple deployment options**
 
-A Hugging Face Space for training StyleGAN-V models using the MonoX framework with monotype-inspired artwork generation.
+## 🚀 Branches
 
-## Features
+This repository is organized into three specialized branches for different training environments:
 
-- **Fresh Training**: Train from scratch using 1024px monotype dataset
-- **Web Interface**: Easy-to-use Gradio interface for training control
-- **CPU/GPU Support**: Works with both CPU and GPU compute
-- **Automatic Uploads**: All outputs uploaded to lukua/monox model repo
-- **Real-time Monitoring**: Live training progress and status updates
+### 🎨 [collab-stylegen-training](https://github.com/yakymchukluka-afk/MonoX/tree/collab-stylegen-training)
+**Google Colab GPU Training**
+- Free GPU training using Google Colab
+- Complete Jupyter notebook setup
+- 30x faster than CPU training
+- Perfect for experimentation and learning
 
-## Quick Start
+### 🤗 [hf-training](https://github.com/yakymchukluka-afk/MonoX/tree/hf-training)
+**Hugging Face Spaces Deployment**
+- Deploy directly to Hugging Face Spaces
+- Web interface with Gradio
+- Automatic model uploads to HF Hub
+- Docker-based deployment
 
-1. **Set HF Token**: Add your HF token as a Space secret named `HF_TOKEN`
-2. **Start Training**: Use the web interface or run training scripts
-3. **Monitor Progress**: Check real-time status and outputs
-4. **View Results**: All outputs automatically uploaded to lukua/monox
+### ☁️ [runpod-training](https://github.com/yakymchukluka-afk/MonoX/tree/runpod-training)
+**RunPod Cloud GPU Training**
+- High-performance cloud GPU training
+- Multiple GPU options (T4, V100, A100, RTX 4090)
+- Cost-effective training solutions
+- Production-ready deployment
 
-## Training Configuration
+## 🎯 Quick Start
 
-- **Dataset**: lukua/monox-dataset (868 images at 1024×1024)
-- **Architecture**: GAN with Generator and Discriminator
-- **Training**: 50 epochs with checkpoints every 5 epochs
-- **Outputs**: Checkpoints, preview images, and comprehensive logs
+Choose your preferred training environment:
 
-## Usage
+### Google Colab (Free)
+```bash
+git checkout collab-stylegen-training
+# Open MonoX_GPU_Colab.ipynb in Google Colab
+# Enable GPU runtime and run all cells
+```
+
+### Hugging Face Spaces
+```bash
+git checkout hf-training
+# Deploy to HF Spaces with GPU support
+# Set HF_TOKEN as Space secret
+```
+
+### RunPod Cloud
+```bash
+git checkout runpod-training
+# Deploy to RunPod with your preferred GPU
+# Configure runpod_config.yaml
+```
+
+## 🎨 Model Architecture
+
+- **Generator**: L4Generator1024 (512 noise → 1024x1024 images)
+- **Resolution**: 1024x1024 pixels
+- **Training**: 50 epochs with checkpoints
+- **Output**: High-quality monotype-style artwork
+
+## 📊 Performance Comparison
+
+| Platform | GPU | Time per Epoch | Total Time | Cost |
+|----------|-----|---------------|------------|------|
+| **Google Colab** | T4 | 30 seconds | 25 minutes | FREE |
+| **HF Spaces** | T4 | 30 seconds | 25 minutes | $0.60/hour |
+| **RunPod** | T4 | 45 seconds | 37 minutes | $0.20/hour |
+| **RunPod** | A100 | 15 seconds | 12 minutes | $1.50/hour |
+
+## 🔧 Features
+
+- **StyleGAN-V Implementation**: Complete L4Generator1024 architecture
+- **Multiple Platforms**: Colab, HF Spaces, RunPod support
+- **GPU Optimization**: Mixed precision, gradient accumulation
+- **Checkpoint Resuming**: Resume training from any checkpoint
+- **Real-time Monitoring**: Live training progress updates
+- **Auto Upload**: Results automatically uploaded to HF Hub
+
+## 📝 Usage
+
+### Basic Training
+```python
+from train import L4Generator1024, start_training
+
+# Initialize model
+generator = L4Generator1024()
+
+# Start training
+start_training(generator, epochs=50)
+```
 
 ### Web Interface
-Access the Gradio interface to:
-- Check system status and configuration
-- Start/stop training processes
-- Monitor training progress in real-time
-- View generated samples and checkpoints
-
-### Direct Training
-```bash
-python3 simple_gan_training.py
+```python
+# Run Gradio interface
+python app.py
 ```
 
-### Monitor Progress
-```bash
-python3 monitor_training.py
-```
+## 🔗 Related
 
-## Output Structure
+- **Colab Training**: See `collab-stylegen-training` branch
+- **HF Training**: See `hf-training` branch  
+- **RunPod**: See `runpod-training` branch
 
-All outputs are uploaded to `lukua/monox`:
-- `/checkpoints` - Model checkpoints every 5 epochs
-- `/previews` - Generated sample images per epoch
-- `/logs` - Training logs and progress reports
-
-## Hardware Requirements
-
-- **CPU**: Works with free CPU compute (slower but functional)
-- **GPU**: Faster training with paid GPU compute
-- **Memory**: Optimized for available resources
-
-## Security
-
-- All authentication via environment variables
-- No hardcoded tokens in source code
-- Secure HF token handling
-
-## License
+## 📄 License
 
 MIT License
