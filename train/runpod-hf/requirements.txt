@@ -1,0 +1,7 @@
+huggingface_hub>=0.23.0
+hf_transfer>=0.1.6
+tensorboard>=2.16.0
+tqdm
+Pillow
+opencv-python
+ninja
