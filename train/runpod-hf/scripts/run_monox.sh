@@ -2,10 +2,9 @@
 set -e
 
 # Map RunPod secret to HF token
-if [ -n "${RUNPOD_SECRET_HF_token:-}" ]; then
-  export HF_TOKEN="${RUNPOD_SECRET_HF_token}"
-export HUGGINGFACE_HUB_TOKEN="$HF_TOKEN"
-fi
+export HF_TOKEN="${HF_TOKEN:-${RUNPOD_SECRET_hf_secret:-${hf_secret:-${RUNPOD_SECRET_HF_token:-}}}}"
+export HUGGINGFACE_HUB_TOKEN="${HUGGINGFACE_HUB_TOKEN:-$HF_TOKEN}"
+[ -z "${HF_TOKEN:-}" ] && { echo "[setup] ERROR: HF_TOKEN missing (attach secret or export HF_TOKEN)"; exit 2; }
 
 echo "[setup] Starting MonoX training setup..."
 
