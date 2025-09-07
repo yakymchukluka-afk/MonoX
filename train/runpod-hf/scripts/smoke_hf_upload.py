@@ -24,7 +24,7 @@ def main():
         
         # Check if we can access the dataset repo
         try:
-            api.repo_info("lukua/monox-dataset", repo_type="model")
+            api.repo_info("lukua/monox-dataset", repo_type="dataset")
             print("[smoke] Dataset repository access: OK")
         except Exception as e:
             print(f"[smoke] Dataset repository access failed: {e}")
@@ -32,7 +32,7 @@ def main():
         
         # Check if we can access the model repo
         try:
-            api.repo_info("lukua/monox-model", repo_type="model")
+            api.repo_info("lukua/monox-model", repo_type="dataset")
             print("[smoke] Model repository access: OK")
         except Exception as e:
             print(f"[smoke] Model repository access failed: {e}")
