@@ -14,7 +14,7 @@ def main():
     # Download dataset using model-repo semantics
     snapshot_download(
         repo_id="lukua/monox-dataset", 
-        repo_type="model", 
+        repo_type="dataset", 
         local_dir="/workspace/data/monox-dataset", 
         local_dir_use_symlinks=False, 
         max_workers=8
