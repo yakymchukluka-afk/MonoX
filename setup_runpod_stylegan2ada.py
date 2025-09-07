@@ -56,7 +56,7 @@ def install_dependencies():
     
     for dep in dependencies:
         print(f"Installing {dep}...")
-        run_command(f"pip install {dep}")
+        run_command(f"pip install {dep} --break-system-packages")
 
 def setup_stylegan2ada():
     """Set up StyleGAN2-ADA submodule"""
@@ -215,15 +215,19 @@ def main():
     parser = argparse.ArgumentParser(description="Setup StyleGAN2-ADA on RunPod")
     parser.add_argument("--skip-dataset", action="store_true", help="Skip dataset download")
     parser.add_argument("--skip-test", action="store_true", help="Skip compatibility test")
+    parser.add_argument("--skip-gpu-check", action="store_true", help="Skip GPU check")
     args = parser.parse_args()
     
     print("🚀 Setting up StyleGAN2-ADA on RunPod")
     print("=" * 50)
     
-    # Check GPU
-    if not check_gpu():
-        print("❌ GPU check failed. Please ensure you're running on a GPU instance.")
-        sys.exit(1)
+    # Check GPU (unless skipped)
+    if not args.skip_gpu_check:
+        if not check_gpu():
+            print("❌ GPU check failed. Please ensure you're running on a GPU instance.")
+            sys.exit(1)
+    else:
+        print("⏭️ Skipping GPU check")
     
     # Install dependencies
     install_dependencies()

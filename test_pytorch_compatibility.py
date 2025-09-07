@@ -56,6 +56,10 @@ def test_grid_sample_gradfix():
         
         # Test backward pass
         try:
+            # Make sure input requires gradients
+            input_tensor.requires_grad_(True)
+            grid.requires_grad_(True)
+            output = grid_sample_gradfix.grid_sample(input_tensor, grid)
             output.sum().backward()
             print("✓ Backward pass successful")
         except Exception as e:
