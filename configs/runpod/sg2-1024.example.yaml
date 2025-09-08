@@ -1,0 +1,74 @@
+# StyleGAN2-ADA Training Configuration for RunPod
+# This is an example configuration file for 1024x1024 training
+
+# Dataset configuration
+dataset:
+  path: "/workspace/datasets/mydataset.zip"
+  resolution: 1024
+  mirror: true  # Enable x-flip augmentation
+
+# Training configuration
+training:
+  outdir: "/workspace/out/sg2"
+  gpus: 8
+  config: "auto"  # auto, stylegan2, paper1024, etc.
+  
+  # Augmentation settings
+  aug: "ada"  # Adaptive discriminator augmentation
+  aug_target: 0.6  # ADA target value
+  augpipe: "bgcfnc"  # All augmentations: blit, geom, color, filter, noise, cutout
+  
+  # Training parameters
+  gamma: 10.0  # R1 gamma (try different values for your dataset)
+  kimg: 25000  # Total training kimg
+  snap: 10  # Snapshot interval (every 10 kimg)
+  
+  # Metrics and monitoring
+  metrics: "fid50k_full"  # FID evaluation
+  resume: "ffhq1024"  # Transfer learning from FFHQ
+  
+  # Performance settings
+  batch: 32  # Batch size (adjust based on GPU memory)
+  batch_gpu: 4  # Batch size per GPU
+  
+  # Advanced settings
+  cond: false  # Class conditional training
+  mirror: true  # X-flip augmentation
+  metrics: ["fid50k_full"]  # Quality metrics
+  
+# RunPod specific settings
+runpod:
+  tmux_session: "monox"
+  log_dir: "/workspace/logs"
+  checkpoint_dir: "/workspace/out/sg2"
+  
+  # Monitoring
+  monitor_interval: 60  # seconds
+  save_samples: true
+  sample_interval: 1000  # kimg
+  
+# Transfer learning settings (if using)
+transfer_learning:
+  enabled: true
+  source_network: "ffhq1024"  # or path to .pkl file
+  freeze_layers: 0  # Number of layers to freeze
+  
+# Dataset-specific recommendations
+dataset_recommendations:
+  small_dataset:  # < 1000 images
+    config: "paper1024"
+    gamma: 10.0
+    aug_target: 0.7
+    kimg: 10000
+    
+  medium_dataset:  # 1000-10000 images
+    config: "auto"
+    gamma: 10.0
+    aug_target: 0.6
+    kimg: 25000
+    
+  large_dataset:  # > 10000 images
+    config: "stylegan2"
+    gamma: 10.0
+    aug_target: 0.6
+    kimg: 25000
