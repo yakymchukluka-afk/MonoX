@@ -1,0 +1,58 @@
+# MonoX 1024x1024 Training Configuration for RunPod A100 80GB PCIe
+# Optimized for 8 vCPU, can be adjusted to 12 for A100 SXM (16 vCPU)
+
+# Dataset configuration
+dataset:
+  path: "/workspace/data/monox-dataset"
+  resolution: 1024
+  workers: 8  # Optimized for A100 80GB PCIe (8 vCPU)
+  pin_memory: true
+  persistent_workers: true
+
+# Model configuration
+model:
+  z_dim: 512
+  w_dim: 512
+  img_resolution: 1024
+  img_channels: 3
+  synthesis_kwargs:
+    channel_base: 32768
+    channel_max: 512
+    num_fp16_res: 4
+    conv_clamp: 256
+
+# Training configuration
+training:
+  batch_size: 4  # Conservative for 80GB VRAM
+  learning_rate: 0.002
+  beta1: 0.0
+  beta2: 0.99
+  gamma: 0.5
+  lambda_gp: 10.0
+  lambda_pl: 2.0
+  lambda_style: 1.0
+  lambda_content: 1.0
+  
+  # Checkpoint and sampling intervals
+  checkpoint_interval: 25000  # Every 25k steps
+  sample_interval: 50000      # Every 50k steps
+  
+  # Output paths
+  outdir: "/workspace/out"
+  checkpoints_dir: "/workspace/out/checkpoints"
+  samples_dir: "/workspace/out/samples"
+  logs_dir: "/workspace/out/logs"
+
+# Performance optimizations
+performance:
+  torch_compile: true
+  amp: true
+  channels_last: true
+  cudnn_benchmark: true
+  compile_mode: "reduce-overhead"
+
+# Logging
+logging:
+  log_interval: 100
+  save_interval: 1000
+  tensorboard: true

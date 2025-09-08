@@ -1,0 +1,6 @@
+# Minimal requirements for basic functionality
+gradio>=4.0.0
+torch>=2.0.0
+torchvision
+Pillow
+huggingface_hub

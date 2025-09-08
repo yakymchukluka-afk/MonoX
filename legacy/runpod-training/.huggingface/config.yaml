@@ -1,0 +1,6 @@
+# HF Spaces Configuration
+# Disable automatic git configuration that causes permission errors
+
+build:
+  # Skip problematic git config commands
+  skip_git_config: true
