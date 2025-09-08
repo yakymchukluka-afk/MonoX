@@ -1,107 +1,99 @@
-# MonoX StyleGAN-V Training
+# MonoX - StyleGAN Training Repository
 
-**Complete StyleGAN-V training implementation with multiple deployment options**
+This repository contains multiple training approaches for StyleGAN models, organized into specialized branches for different environments and use cases.
 
-## 🚀 Branches
+## 🚀 Active Branches
 
-This repository is organized into three specialized branches for different training environments:
+### [runpod/sg2-1024](https://github.com/yakymchukluka-afk/MonoX/tree/runpod/sg2-1024) - **Active RunPod Training**
+Clean, production-ready RunPod training setup using official NVLabs StyleGAN2-ADA.
 
-### 🎨 [collab-stylegen-training](https://github.com/yakymchukluka-afk/MonoX/tree/collab-stylegen-training)
-**Google Colab GPU Training**
-- Free GPU training using Google Colab
-- Complete Jupyter notebook setup
-- 30x faster than CPU training
-- Perfect for experimentation and learning
+**Features:**
+- Official StyleGAN2-ADA submodule integration
+- Minimal, idempotent RunPod scripts
+- Git LFS support for large datasets
+- Comprehensive documentation
 
-### 🤗 [hf-training](https://github.com/yakymchukluka-afk/MonoX/tree/hf-training)
-**Hugging Face Spaces Deployment**
-- Deploy directly to Hugging Face Spaces
-- Web interface with Gradio
-- Automatic model uploads to HF Hub
-- Docker-based deployment
-
-### ☁️ [runpod-training](https://github.com/yakymchukluka-afk/MonoX/tree/runpod-training)
-**RunPod Cloud GPU Training**
-- High-performance cloud GPU training
-- Multiple GPU options (T4, V100, A100, RTX 4090)
-- Cost-effective training solutions
-- Production-ready deployment
-
-## 🎯 Quick Start
-
-Choose your preferred training environment:
-
-### Google Colab (Free)
+**Quick Start:**
 ```bash
-git checkout collab-stylegen-training
-# Open MonoX_GPU_Colab.ipynb in Google Colab
-# Enable GPU runtime and run all cells
+git checkout runpod/sg2-1024
+bash scripts/runpod/bootstrap.sh
+bash scripts/runpod/make_dataset_zip.sh /path/to/dataset
+bash scripts/runpod/train.sh
 ```
 
-### Hugging Face Spaces
+## 📚 Archive Branches
+
+### [archive/huggingface-training-20250908](https://github.com/yakymchukluka-afk/MonoX/tree/archive/huggingface-training-20250908) - **HuggingFace Archive**
+Frozen HuggingFace training setup with HF Spaces integration.
+
+**Contents:**
+- HF Space configuration and setup scripts
+- HuggingFace authentication utilities
+- Training configurations for HF environment
+- Documentation and troubleshooting guides
+
+### [archive/colab-training-20250908](https://github.com/yakymchukluka-afk/MonoX/tree/archive/colab-training-20250908) - **Google Colab Archive**
+Frozen Google Colab training setup with Jupyter notebooks.
+
+**Contents:**
+- Colab setup scripts and installation utilities
+- Interactive Jupyter notebooks for training
+- Colab-specific troubleshooting documentation
+- StyleGAN-V integration
+
+### [archive/runpod-experiments-20250908](https://github.com/yakymchukluka-afk/MonoX/tree/archive/runpod-experiments-20250908) - **Experimental RunPod Archive**
+Consolidated archive of all experimental RunPod branches.
+
+**Contents:**
+- Legacy experimental branches in `legacy/` directories
+- Backup tags for all deleted branches
+- Historical RunPod configurations and scripts
+- Complete experimental work preservation
+
+## 🔧 Recovery
+
+All deleted experimental branches are preserved with backup tags:
+
 ```bash
-git checkout hf-training
-# Deploy to HF Spaces with GPU support
-# Set HF_TOKEN as Space secret
+# List all backup tags
+git tag -l "backup/*"
+
+# Restore a specific branch
+git checkout -b <branch-name> backup/<backup-tag-name>
 ```
 
-### RunPod Cloud
-```bash
-git checkout runpod-training
-# Deploy to RunPod with your preferred GPU
-# Configure runpod_config.yaml
-```
+## 📋 Branch Status
 
-## 🎨 Model Architecture
+| Branch | Status | Purpose | Last Updated |
+|--------|--------|---------|--------------|
+| `runpod/sg2-1024` | ✅ Active | Production RunPod training | 2025-09-08 |
+| `archive/huggingface-training-20250908` | 📦 Frozen | HF training archive | 2025-09-08 |
+| `archive/colab-training-20250908` | 📦 Frozen | Colab training archive | 2025-09-08 |
+| `archive/runpod-experiments-20250908` | 📦 Frozen | Experimental archive | 2025-09-08 |
 
-- **Generator**: L4Generator1024 (512 noise → 1024x1024 images)
-- **Resolution**: 1024x1024 pixels
-- **Training**: 50 epochs with checkpoints
-- **Output**: High-quality monotype-style artwork
+## 🛠️ Development
 
-## 📊 Performance Comparison
+- **Active Development**: Use `runpod/sg2-1024` for new features
+- **Historical Reference**: Check archive branches for previous implementations
+- **Recovery**: Use backup tags to restore any deleted experimental work
 
-| Platform | GPU | Time per Epoch | Total Time | Cost |
-|----------|-----|---------------|------------|------|
-| **Google Colab** | T4 | 30 seconds | 25 minutes | FREE |
-| **HF Spaces** | T4 | 30 seconds | 25 minutes | $0.60/hour |
-| **RunPod** | T4 | 45 seconds | 37 minutes | $0.20/hour |
-| **RunPod** | A100 | 15 seconds | 12 minutes | $1.50/hour |
+## 📖 Documentation
 
-## 🔧 Features
+Each branch contains its own comprehensive documentation:
+- `README-RUNPOD.md` - RunPod training guide
+- `README-ARCHIVE-HF.md` - HuggingFace archive documentation
+- `README-ARCHIVE-COLAB.md` - Colab archive documentation
+- `legacy/README.md` - Experimental branches documentation
 
-- **StyleGAN-V Implementation**: Complete L4Generator1024 architecture
-- **Multiple Platforms**: Colab, HF Spaces, RunPod support
-- **GPU Optimization**: Mixed precision, gradient accumulation
-- **Checkpoint Resuming**: Resume training from any checkpoint
-- **Real-time Monitoring**: Live training progress updates
-- **Auto Upload**: Results automatically uploaded to HF Hub
+## 🔒 Safety
 
-## 📝 Usage
+- All experimental work is preserved in backup tags
+- No history has been rewritten
+- All branches can be recovered if needed
+- Clean separation between active and archived work
 
-### Basic Training
-```python
-from train import L4Generator1024, start_training
+---
 
-# Initialize model
-generator = L4Generator1024()
-
-# Start training
-start_training(generator, epochs=50)
-```
-
-### Web Interface
-```python
-# Run Gradio interface
-python app.py
-```
-
-## 🔗 Related
-
-- **Colab Training**: See `collab-stylegen-training` branch
-- **HF Training**: See `hf-training` branch  
-- **RunPod**: See `runpod-training` branch
-
-## 📄 License
-
-MIT License
+**Repository Cleanup Date**: 2025-09-08  
+**Total Branches**: 4 (1 active, 3 archives)  
+**Backup Tags**: 6 (for all deleted experimental branches)
