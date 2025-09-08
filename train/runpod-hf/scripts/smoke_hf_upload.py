@@ -1,26 +1,15 @@
 #!/usr/bin/env python3
 """
-Smoke test for Hugging Face upload functionality
+Smoke test for Hugging Face dataset access (public only)
 """
-import os
 from huggingface_hub import HfApi
 
 def main():
-    print("[smoke] Testing Hugging Face authentication...")
-    
-    # Check if HF_TOKEN is set
-    if not os.getenv('HF_TOKEN'):
-        print("ERROR: HF_TOKEN not set. Please set RUNPOD_SECRET_HF_token environment variable.")
-        return False
+    print("[smoke] Testing Hugging Face dataset access (public)...")
     
     try:
-        # Test authentication
+        # Test dataset access (public, no auth needed)
         api = HfApi()
-        user = api.whoami()
-        print(f"[smoke] Successfully authenticated as: {user['name']}")
-        
-        # Test repository access
-        print("[smoke] Testing repository access...")
         
         # Check if we can access the dataset repo
         try:
@@ -30,19 +19,11 @@ def main():
             print(f"[smoke] Dataset repository access failed: {e}")
             return False
         
-        # Check if we can access the model repo
-        try:
-            api.repo_info("lukua/monox-model", repo_type="dataset")
-            print("[smoke] Model repository access: OK")
-        except Exception as e:
-            print(f"[smoke] Model repository access failed: {e}")
-            return False
-        
-        print("[smoke] All tests passed! Ready for training.")
+        print("[smoke] Dataset access test passed! Ready for training.")
         return True
         
     except Exception as e:
-        print(f"[smoke] Authentication failed: {e}")
+        print(f"[smoke] Dataset access test failed: {e}")
         return False
 
 if __name__ == "__main__":

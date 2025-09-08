@@ -1,16 +1,7 @@
 #!/bin/bash
 set -e
 
-## Map any common secret/env name → HF_TOKEN and HUGGINGFACE_HUB_TOKEN
-if [ -z "${HF_TOKEN:-}" ]; then
-  for v in HF_TOKEN HUGGINGFACE_HUB_TOKEN RUNPOD_SECRET_hf_secret hf_secret RUNPOD_SECRET_HF_token hf_auth HF_AUTH; do
-    eval "val=\${$v:-}"
-    if [ -n "$val" ]; then export HF_TOKEN="$val"; export HUGGINGFACE_HUB_TOKEN="$val"; echo "[auth] Using token from $v"; break; fi
-  done
-fi
-[ -z "${HF_TOKEN:-}" ] && { echo "[setup] ERROR: HF_TOKEN missing (attach secret/env or export HF_TOKEN)"; exit 2; }
-
-echo "[setup] Starting MonoX training setup..."
+echo "[setup] Starting MonoX training setup (public access only)..."
 
 # Install non-Torch dependencies
 echo "[setup] Installing dependencies..."
@@ -62,8 +53,9 @@ python scripts/get_dataset.py
 # Create output directories
 mkdir -p /workspace/out/{checkpoints,samples,logs}
 
-# Launch training and uploader in tmux sessions
-echo "[setup] Launching training and uploader..."
+# Launch training in tmux session
+echo "[setup] Launching training..."
 tmux new -s monox -d "python monox/train.py --config configs/monox-1024.yaml"
-tmux new -s hubpush -d "python scripts/push_to_hub.py"
-echo "Launched training (tmux: monox) and uploader (tmux: hubpush)"
+echo "Launched training (tmux: monox)"
+echo "Checkpoints will be saved to: /workspace/out/checkpoints/"
+echo "Samples will be saved to: /workspace/out/samples/"
