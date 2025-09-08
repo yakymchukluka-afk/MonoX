@@ -1,0 +1,64 @@
+# RunPod StyleGAN2-ADA Training Configuration
+
+# GPU Configuration
+gpu:
+  type: "auto"  # auto, t4, v100, a100, rtx4090
+  memory_limit: "auto"  # auto or specific GB limit
+  cuda_visible_devices: "0"
+
+# Dataset Configuration
+dataset:
+  input_dir: "/workspace/datasets/raw"  # Raw images directory
+  output_zip: "/workspace/datasets/dataset.zip"  # Processed dataset ZIP
+  resolution: 1024  # Image resolution (256, 512, 1024)
+  min_images: 1000  # Minimum number of images required
+
+# Training Configuration
+training:
+  output_dir: "/workspace/output"
+  batch_size: 8  # Adjust based on GPU memory
+  kimg: 25000  # Total training kimg (25M images)
+  snapshot_kimg: 2500  # Save checkpoint every 2.5M images
+  metrics: "none"  # Metrics to calculate (none, fid50k, is50k, etc.)
+  resume: "latest"  # Resume from latest checkpoint
+  
+  # Advanced training options
+  gamma: 10.0  # R1 regularization weight
+  lr: 0.002  # Learning rate
+  beta1: 0.0  # Adam beta1
+  beta2: 0.99  # Adam beta2
+  fp32: false  # Use mixed precision (recommended)
+  
+  # Data augmentation
+  aug: "ada"  # Augmentation type (ada, noaug, fixed)
+  target: 0.6  # ADA target augmentation probability
+  augpipe: "bgc"  # Augmentation pipeline
+
+# Monitoring Configuration
+monitoring:
+  log_interval: 100  # Log every N kimg
+  sample_interval: 2500  # Generate samples every N kimg
+  tensorboard: true  # Enable TensorBoard logging
+  wandb: false  # Enable Weights & Biases logging
+  
+# RunPod Specific
+runpod:
+  auto_start: true  # Start training automatically
+  auto_stop: true  # Stop pod when training completes
+  idle_timeout: 300  # Stop if idle for N seconds
+  max_runtime: 7200  # Maximum runtime in seconds (2 hours)
+  spot_instance: true  # Use spot instances for cost savings
+  
+# Storage Configuration
+storage:
+  persistent_volume: "/workspace"  # Persistent storage mount
+  checkpoint_dir: "/workspace/checkpoints"
+  sample_dir: "/workspace/samples"
+  log_dir: "/workspace/logs"
+  
+# Cost Optimization
+cost_optimization:
+  use_spot: true  # Use spot instances
+  auto_scale: false  # Auto-scale based on workload
+  max_cost: 10.0  # Maximum cost in USD
+  shutdown_on_complete: true  # Shutdown when training completes
